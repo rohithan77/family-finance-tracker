@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Finance</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f1ed;--surface:#fff;--surface2:#ebe9e4;--surface3:#e0ddd7;
+  --text:#1a1a1a;--text2:#5a5a5a;--text3:#999;
+  --border:#e0ddd8;--border2:#c8c5bf;
+  --green:#1a6e40;--green-bg:#e4f2eb;--green-light:#f0faf4;--green-mid:#2d9e5f;
+  --red:#b83232;--red-bg:#faeaea;--red-light:#fdf5f5;
+  --amber:#8a5c00;--amber-bg:#fdf3e0;
+  --blue:#2c5282;--blue-bg:#e8eef8;--blue-light:#f0f4fc;
+  --purple:#5b3d8a;--purple-bg:#f0eaf8;
+  --accent:#2c5282;
+  --radius:14px;--radius-sm:9px;--radius-xs:6px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,0.08),0 2px 4px rgba(0,0,0,0.04);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--surface3:#2a2a2a;
+    --text:#f0f0f0;--text2:#aaa;--text3:#555;
+    --border:#2a2a2a;--border2:#3a3a3a;
+    --green:#3db870;--green-bg:#0a2018;--green-light:#0d2a1e;--green-mid:#3db870;
+    --red:#e06060;--red-bg:#2a0f0f;--red-light:#251010;
+    --amber:#e0a020;--amber-bg:#221700;
+    --blue:#6b9bd2;--blue-bg:#0d1e30;--blue-light:#0f2235;
+    --purple:#a07ad2;--purple-bg:#1a0f2a;
+    --shadow:0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md:0 4px 12px rgba(0,0,0,0.4);
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;font-size:15px}
+
+/* SETUP */
+#setup-screen{display:none;min-height:100vh;padding:32px 16px;background:var(--bg);align-items:flex-start;justify-content:center}
+.setup-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;max-width:560px;width:100%;box-shadow:var(--shadow-md)}
+.setup-box h1{font-size:22px;font-weight:700;margin-bottom:6px}
+.setup-intro{font-size:14px;color:var(--text2);margin-bottom:24px;line-height:1.7}
+.step{border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px}
+.step-num{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.step p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:6px}
+.step strong{color:var(--text)}
+.script-area{width:100%;height:80px;font-size:11px;font-family:monospace;padding:8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface2);color:var(--text);resize:none;margin:8px 0 6px}
+.copy-btn{font-size:12px;padding:5px 12px;border:1px solid var(--border2);border-radius:var(--radius-xs);background:var(--surface);color:var(--text2);cursor:pointer}
+.copy-btn:hover{background:var(--surface2)}
+.sfield{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.sfield label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px}
+.sfield input{font-size:14px;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)}
+.setup-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:16px}
+.setup-btn:hover{opacity:0.88}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30;box-shadow:var(--shadow)}
+.logo{font-size:17px;font-weight:700;letter-spacing:-0.4px}
+.logo em{font-style:normal;color:var(--accent)}
+.hright{display:flex;align-items:center;gap:10px}
+.sync-pill{font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;background:var(--green-bg);color:var(--green);display:flex;align-items:center;gap:5px;transition:all 0.2s}
+.sync-pill.loading{background:var(--amber-bg);color:var(--amber)}
+.sync-pill.error{background:var(--red-bg);color:var(--red)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.spin{animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.btn-sm{padding:6px 13px;font-size:12px;font-weight:500;border:1px solid var(--border2);border-radius:var(--radius-xs);background:var(--surface);color:var(--text2);cursor:pointer}
+.btn-sm:hover{background:var(--surface2)}
+
+/* NAV TABS */
+.nav-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px}
+.nav-tabs{display:flex;gap:0;max-width:900px;margin:0 auto}
+.nav-tab{padding:13px 18px;font-size:13px;font-weight:500;border:none;background:none;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.nav-tab:hover:not(.active){color:var(--text2)}
+
+main{max-width:900px;margin:0 auto;padding:24px 16px}
+.section{display:none}.section.active{display:block}
+
+/* DASHBOARD */
+.dash-greeting{font-size:20px;font-weight:700;margin-bottom:4px;letter-spacing:-0.3px}
+.dash-sub{font-size:13px;color:var(--text3);margin-bottom:20px}
+.period-row{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.period-btn{padding:6px 14px;font-size:12px;font-weight:500;border:1px solid var(--border2);border-radius:20px;background:var(--surface);color:var(--text2);cursor:pointer;transition:all 0.15s}
+.period-btn.active{background:var(--accent);color:#fff;border-color:transparent}
+.period-btn:hover:not(.active){background:var(--surface2)}
+
+/* BIG METRIC CARDS */
+.big-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:600px){.big-metrics{grid-template-columns:1fr}}
+.big-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.big-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.big-card.income::before{background:var(--green-mid)}
+.big-card.expense::before{background:var(--red)}
+.big-card.balance::before{background:var(--accent)}
+.big-card-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.big-card-val{font-size:28px;font-weight:700;letter-spacing:-0.8px;line-height:1}
+.big-card-val.pos{color:var(--green)}.big-card-val.neg{color:var(--red)}.big-card-val.neu{color:var(--accent)}
+.big-card-sub{font-size:12px;color:var(--text3);margin-top:6px}
+
+/* ACCOUNT CARDS */
+.account-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px}
+.acct-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow)}
+.acct-name{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+.acct-bal{font-size:20px;font-weight:700;letter-spacing:-0.4px}
+.acct-bal.pos{color:var(--green)}.acct-bal.neg{color:var(--red)}
+.acct-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* SECTION HEADER */
+.section-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.section-hdr h2{font-size:14px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px}
+
+/* SPLIT CARDS */
+.split-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px}
+.split-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.split-card h3{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.srow:last-child{border-bottom:none}
+.srow-name{color:var(--text);font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
+.srow-amt{font-weight:600;font-size:13px;white-space:nowrap}
+.srow-amt.in{color:var(--green)}.srow-amt.out{color:var(--red)}
+.srow-bar-wrap{height:4px;background:var(--surface2);border-radius:2px;margin-top:4px;overflow:hidden}
+.srow-bar{height:100%;border-radius:2px;background:var(--red);transition:width 0.4s}
+.srow-bar.in{background:var(--green-mid)}
+
+/* RECENT */
+.recent-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:24px}
+.recent-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);transition:background 0.1s}
+.recent-item:last-child{border-bottom:none}
+.recent-item:hover{background:var(--surface2)}
+.recent-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.recent-icon.inc{background:var(--green-light)}
+.recent-icon.exp{background:var(--red-light)}
+.recent-info{flex:1;min-width:0}
+.recent-cat{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.recent-amt{font-size:14px;font-weight:700;white-space:nowrap}
+.recent-amt.inc{color:var(--green)}.recent-amt.exp{color:var(--red)}
+
+/* ADD ENTRY */
+.ai-wrap{background:var(--surface);border:1.5px solid var(--border2);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow);transition:border-color 0.2s}
+.ai-wrap:focus-within{border-color:var(--accent)}
+.ai-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.ai-examples{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.7}
+.ai-examples span{display:inline-block;background:var(--surface2);border-radius:4px;padding:2px 7px;margin:2px 3px 2px 0;font-size:11px}
+.ai-row{display:flex;gap:8px;align-items:flex-end}
+textarea.ai-txt{flex:1;border:none;background:none;font-size:15px;color:var(--text);resize:none;min-height:56px;font-family:inherit;line-height:1.6}
+textarea.ai-txt:focus{outline:none}
+textarea.ai-txt::placeholder{color:var(--text3)}
+.ai-btn{padding:11px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:var(--shadow)}
+.ai-btn:hover{opacity:0.85}
+.ai-btn:disabled{opacity:0.4;cursor:not-allowed}
+.thinking{font-size:13px;color:var(--text3);padding:6px 0;display:none;align-items:center;gap:8px}
+.thinking.show{display:flex}
+.thinking-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:thinking 1.2s infinite}
+.thinking-dot:nth-child(2){animation-delay:0.2s}
+.thinking-dot:nth-child(3){animation-delay:0.4s}
+@keyframes thinking{0%,80%,100%{transform:scale(0.6);opacity:0.4}40%{transform:scale(1);opacity:1}}
+
+/* PREVIEW */
+.preview{background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:20px;margin-bottom:14px;display:none;box-shadow:var(--shadow-md)}
+.preview.show{display:block}
+.preview-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.pf{display:flex;flex-direction:column;gap:4px}
+.pf label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.pf select,.pf input{font-size:13px;padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-xs);background:var(--surface);color:var(--text)}
+.pactions{display:flex;gap:8px}
+.btn-confirm{padding:10px 22px;background:var(--green-mid);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--shadow)}
+.btn-confirm:hover{opacity:0.88}
+.btn-discard{padding:10px 16px;background:none;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);cursor:pointer}
+.btn-discard:hover{background:var(--surface2)}
+
+/* LEDGER */
+.filter-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;align-items:center}
+.filter-row select{font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);min-width:120px}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge.inc{background:var(--green-bg);color:var(--green)}
+.badge.exp{background:var(--red-bg);color:var(--red)}
+.note-col{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+.empty-row td{text-align:center;padding:40px;color:var(--text3);font-size:14px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:var(--bg);padding:11px 24px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:all 0.2s;pointer-events:none;z-index:100;white-space:nowrap;box-shadow:var(--shadow-md)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:640px){
+  main{padding:16px 12px}
+  .nav-tab{padding:12px 12px;font-size:12px}
+  .big-metrics{grid-template-columns:1fr 1fr}
+  .big-card-val{font-size:22px}
+  th,td{padding:10px 10px}
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-box">
+    <h1>One-time setup</h1>
+    <p class="setup-intro">Your data is stored in your own Google Sheet — free, private, and accessible by both of you from any device.</p>
+    <div class="step">
+      <div class="step-num">Step 1 — Create your Google Sheet</div>
+      <p>Go to <strong>sheets.new</strong> — a blank spreadsheet opens.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 2 — Add the script</div>
+      <p>Click <strong>Extensions → Apps Script</strong>. Delete existing code, paste below, click <strong>Save</strong>.</p>
+      <textarea class="script-area" id="script-area" readonly></textarea>
+      <button class="copy-btn" onclick="copyScript()">Copy script</button>
+      <p style="margin-top:10px">Then <strong>Deploy → New deployment → Web app</strong>. Set access to <strong>Anyone</strong>. Click Deploy → Allow → copy the URL.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 3 — Paste your Web App URL</div>
+      <div class="sfield">
+        <label>Google Apps Script Web App URL</label>
+        <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+    </div>
+    <button class="setup-btn" onclick="saveSetup()">Save and start tracking</button>
+    <p style="font-size:12px;color:var(--text3);text-align:center;margin-top:10px">Your data stays in your own Google account.</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="main-app" style="display:none">
+  <header>
+    <div class="logo">Family <em>Finance</em></div>
+    <div class="hright">
+      <div class="sync-pill" id="sync-pill"><div class="sync-dot" id="sync-dot"></div><span id="sync-lbl">Ready</span></div>
+      <button class="btn-sm" onclick="showSetup()">Settings</button>
+    </div>
+  </header>
+
+  <div class="nav-wrap">
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('dashboard',this)">Dashboard</button>
+      <button class="nav-tab" onclick="switchTab('add',this)">Add entry</button>
+      <button class="nav-tab" onclick="switchTab('ledger',this)">Ledger</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="section active">
+      <div class="dash-greeting" id="dash-greeting">Good morning</div>
+      <div class="dash-sub">Here's your family finance overview</div>
+
+      <div class="period-row">
+        <button class="period-btn active" onclick="setPeriod('month',this)">This month</button>
+        <button class="period-btn" onclick="setPeriod('3month',this)">3 months</button>
+        <button class="period-btn" onclick="setPeriod('year',this)">This year</button>
+        <button class="period-btn" onclick="setPeriod('all',this)">All time</button>
+        <button class="btn-sm" onclick="loadEntries()">Refresh ↻</button>
+      </div>
+
+      <div class="big-metrics">
+        <div class="big-card income">
+          <div class="big-card-label">Total income</div>
+          <div class="big-card-val pos" id="d-income">$0</div>
+          <div class="big-card-sub" id="d-income-sub"></div>
+        </div>
+        <div class="big-card expense">
+          <div class="big-card-label">Total expenses</div>
+          <div class="big-card-val neg" id="d-expense">$0</div>
+          <div class="big-card-sub" id="d-expense-sub"></div>
+        </div>
+        <div class="big-card balance">
+          <div class="big-card-label">Net balance</div>
+          <div class="big-card-val" id="d-net">$0</div>
+          <div class="big-card-sub" id="d-net-sub"></div>
+        </div>
+      </div>
+
+      <div class="section-hdr"><h2>Accounts</h2></div>
+      <div class="account-grid" id="d-accounts"></div>
+
+      <div class="split-grid">
+        <div class="split-card">
+          <h3>Top expenses</h3>
+          <div id="d-top-exp"></div>
+        </div>
+        <div class="split-card">
+          <h3>Income breakdown</h3>
+          <div id="d-top-inc"></div>
+        </div>
+        <div class="split-card">
+          <h3>By person</h3>
+          <div id="d-by-person"></div>
+        </div>
+      </div>
+
+      <div class="section-hdr"><h2>Recent entries</h2></div>
+      <div class="recent-card" id="d-recent"></div>
+    </div>
+
+    <!-- ADD -->
+    <div id="tab-add" class="section">
+      <div class="ai-wrap">
+        <div class="ai-label">Describe what happened — AI will categorise it</div>
+        <div class="ai-examples">
+          <span>paid $45 for chicken and spices</span>
+          <span>Chandrahas got $1200 Uber this week</span>
+          <span>sent $500 to India yesterday</span>
+          <span>Rohitha NAB salary $2800</span>
+          <span>bought gym membership $60</span>
+        </div>
+        <div class="ai-row">
+          <textarea class="ai-txt" id="ai-input" rows="2" placeholder="Describe your income or expense..."></textarea>
+          <button class="ai-btn" id="ai-btn" onclick="processEntry()">Analyse ↗</button>
+        </div>
+      </div>
+      <div class="thinking" id="thinking">
+        <div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div>
+        <span style="font-size:13px;color:var(--text3);margin-left:4px">AI is categorising...</span>
+      </div>
+      <div class="preview" id="preview">
+        <div class="preview-title">✦ AI suggestion — review and confirm</div>
+        <div class="pgrid" id="preview-fields"></div>
+        <div class="pactions">
+          <button class="btn-confirm" onclick="confirmEntry()">Save to sheet</button>
+          <button class="btn-discard" onclick="discardPreview()">Discard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEDGER -->
+    <div id="tab-ledger" class="section">
+      <div class="filter-row">
+        <select id="f-type" onchange="renderLedger()"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option></select>
+        <select id="f-account" onchange="renderLedger()">
+          <option value="">All accounts</option>
+          <option>Rohitha - CBA</option><option>Rohitha - NAB</option>
+          <option>Chandrahas - Bank</option><option>Cash</option><option>Unknown</option>
+        </select>
+        <select id="f-person" onchange="renderLedger()"><option value="">All people</option><option>Rohitha</option><option>Chandrahas</option><option>Both</option></select>
+        <select id="f-cat" onchange="renderLedger()"><option value="">All categories</option></select>
+        <select id="f-month" onchange="renderLedger()"><option value="">All time</option></select>
+        <button class="btn-sm" onclick="clearFilters()">Clear</button>
+        <button class="btn-sm" onclick="loadEntries()">Refresh ↻</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Account</th><th>Person</th><th>Amount</th><th>Note</th></tr></thead>
+          <tbody id="ledger-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SCRIPT_CODE = `function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var action = e.parameter.action;
+  if (action === 'read') {
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+    var headers = data[0];
+    var rows = data.slice(1).map(function(r) {
+      var obj = {}; headers.forEach(function(h,i){ obj[h]=r[i]; }); return obj;
+    });
+    return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (action === 'write') {
+    var entry = JSON.parse(e.parameter.entry);
+    if (sheet.getLastRow() === 0) sheet.appendRow(['id','date','type','category','amount','account','person','note']);
+    sheet.appendRow([entry.id, entry.date, entry.type, entry.category, entry.amount, entry.account, entry.person, entry.note||'']);
+    return ContentService.createTextOutput('OK').setMimeType(ContentService.MimeType.TEXT);
+  }
+  return ContentService.createTextOutput('Ready').setMimeType(ContentService.MimeType.TEXT);
+}`;
+
+document.getElementById('script-area').value = SCRIPT_CODE;
+
+const INC = ['Salary - Chandrahas (full time)','Uber earnings - Chandrahas','Salary - Rohitha','Casual pay - Rohitha','Business sales - snacks','Business sales - other','Cash income','Centrelink / government','Freelance / contract','Tax refund','Investment / interest','Opening balance','Other income'];
+const EXP = ['Rent / mortgage','Electricity & gas','Water','Internet & phone','Groceries','Dining out / takeaway','Coffee & snacks','Fuel','Public transport','Car - rego & insurance','Health & medical','Pharmacy','Gym & fitness','Clothing & personal care','Household supplies','Furniture & appliances','Subscriptions & apps','Entertainment & leisure','Education & training','Sent to India / remittance','Health insurance','Car insurance','Home & contents insurance','Life insurance','Other insurance','Business - raw materials','Business - packaging','Business - equipment','Business - marketing','Business - other','Tax payment','Cash withdrawal','Transfer between accounts','Other expense'];
+
+let entries = [], pending = null, currentPeriod = 'month';
+
+// PERSIST config in both localStorage AND sessionStorage for reliability
+function loadCFG(){
+  try{
+    const ls = localStorage.getItem('ff3_cfg');
+    const ss = sessionStorage.getItem('ff3_cfg');
+    const raw = ls || ss;
+    if(raw){ const c=JSON.parse(raw); if(ls&&!ss)sessionStorage.setItem('ff3_cfg',ls); return c; }
+    return {};
+  }catch(e){return {};}
+}
+function saveCFG(cfg){
+  const s = JSON.stringify(cfg);
+  try{localStorage.setItem('ff3_cfg',s);}catch(e){}
+  try{sessionStorage.setItem('ff3_cfg',s);}catch(e){}
+}
+
+function saveSetup(){
+  const url = document.getElementById('cfg-url').value.trim();
+  if(!url){toast('Paste your Google Apps Script URL');return;}
+  saveCFG({url});
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  loadEntries();
+  toast('All set!');
+}
+
+function showSetup(){
+  const cfg=loadCFG();
+  document.getElementById('cfg-url').value=cfg.url||'';
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+}
+
+function copyScript(){navigator.clipboard.writeText(SCRIPT_CODE);toast('Copied!');}
+
+function setSync(s){
+  const p=document.getElementById('sync-pill'),d=document.getElementById('sync-dot'),l=document.getElementById('sync-lbl');
+  p.className='sync-pill'+(s==='loading'||s==='saving'?' loading':s==='error'?' error':'');
+  d.className='sync-dot'+(s==='loading'||s==='saving'?' spin':'');
+  l.textContent={loading:'Loading...',saving:'Saving...',error:'Error',ready:'Synced'}[s]||'Ready';
+}
+
+async function loadEntries(){
+  const cfg=loadCFG(); if(!cfg.url)return;
+  setSync('loading');
+  try{
+    const r=await fetch(cfg.url+'?action=read');
+    const d=await r.json();
+    entries=d.map(e=>({...e,amount:parseFloat(e.amount)||0}));
+    setSync('ready');
+    renderDashboard();
+    renderLedger();
+  }catch(e){setSync('error');toast('Could not load — check Settings');}
+}
+
+async function saveEntry(entry){
+  const cfg=loadCFG();
+  setSync('saving');
+  try{
+    await fetch(cfg.url+'?action=write&entry='+encodeURIComponent(JSON.stringify(entry)));
+    entries.unshift(entry);
+    setSync('ready');
+    renderDashboard();
+    renderLedger();
+  }catch(e){setSync('error');toast('Save failed — check Settings');}
+}
+
+// PERIOD FILTER
+function setPeriod(p, btn){
+  currentPeriod=p;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashboard();
+}
+
+function filterByPeriod(list){
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  return list.filter(e=>{
+    if(!e.date) return false;
+    const d=new Date(e.date);
+    if(currentPeriod==='month') return d.getFullYear()===y&&d.getMonth()===m;
+    if(currentPeriod==='3month'){const t=new Date(y,m-2,1);return d>=t;}
+    if(currentPeriod==='year') return d.getFullYear()===y;
+    return true;
+  });
+}
+
+function fmt(n){return '$'+Math.abs(n).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function renderDashboard(){
+  // Greeting
+  const h=new Date().getHours();
+  document.getElementById('dash-greeting').textContent = h<12?'Good morning ☀️':h<17?'Good afternoon 🌤️':'Good evening 🌙';
+
+  const f=filterByPeriod(entries);
+  const totalIn=f.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const totalOut=f.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const net=totalIn-totalOut;
+
+  const periodLabel={month:'this month','3month':'last 3 months',year:'this year',all:'all time'}[currentPeriod];
+
+  document.getElementById('d-income').textContent=fmt(totalIn);
+  document.getElementById('d-income-sub').textContent=`${f.filter(e=>e.type==='income').length} entries ${periodLabel}`;
+  document.getElementById('d-expense').textContent=fmt(totalOut);
+  document.getElementById('d-expense-sub').textContent=`${f.filter(e=>e.type==='expense').length} entries ${periodLabel}`;
+  const netEl=document.getElementById('d-net');
+  netEl.textContent=fmt(net);
+  netEl.className='big-card-val '+(net>=0?'pos':'neg');
+  document.getElementById('d-net-sub').textContent=net>=0?'You are saving 👍':'Spending more than earning';
+
+  // Accounts — net per account across ALL time
+  const accounts=['Rohitha - CBA','Rohitha - NAB','Chandrahas - Bank','Cash','Unknown'];
+  const acctEl=document.getElementById('d-accounts');
+  acctEl.innerHTML=accounts.map(a=>{
+    const ain=entries.filter(e=>e.account===a&&e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const aout=entries.filter(e=>e.account===a&&e.type==='expense').reduce((s,e)=>s+e.amount,0);
+    const bal=ain-aout;
+    if(ain===0&&aout===0)return '';
+    return `<div class="acct-card">
+      <div class="acct-name">${a}</div>
+      <div class="acct-bal ${bal>=0?'pos':'neg'}">${fmt(bal)}</div>
+      <div class="acct-sub">${fmt(ain)} in · ${fmt(aout)} out</div>
+    </div>`;
+  }).join('');
+
+  // Top expenses
+  const expByCat={};
+  f.filter(e=>e.type==='expense').forEach(e=>{
+    expByCat[e.category]=(expByCat[e.category]||0)+e.amount;
+  });
+  const topExp=Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const maxExp=topExp[0]?.[1]||1;
+  document.getElementById('d-top-exp').innerHTML=topExp.length?topExp.map(([c,v])=>`
+    <div class="srow" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 0">
+      <div style="display:flex;justify-content:space-between"><span class="srow-name">${c}</span><span class="srow-amt out">${fmt(v)}</span></div>
+      <div class="srow-bar-wrap"><div class="srow-bar" style="width:${(v/maxExp*100).toFixed(1)}%"></div></div>
+    </div>`).join(''):'<p style="color:var(--text3);font-size:13px;padding:8px 0">No expenses yet</p>';
+
+  // Income breakdown
+  const incByCat={};
+  f.filter(e=>e.type==='income').forEach(e=>{
+    incByCat[e.category]=(incByCat[e.category]||0)+e.amount;
+  });
+  const topInc=Object.entries(incByCat).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const maxInc=topInc[0]?.[1]||1;
+  document.getElementById('d-top-inc').innerHTML=topInc.length?topInc.map(([c,v])=>`
+    <div class="srow" style="flex-direction:column;align-items:stretch;gap:4px;padding:8px 0">
+      <div style="display:flex;justify-content:space-between"><span class="srow-name">${c}</span><span class="srow-amt in">${fmt(v)}</span></div>
+      <div class="srow-bar-wrap"><div class="srow-bar in" style="width:${(v/maxInc*100).toFixed(1)}%"></div></div>
+    </div>`).join(''):'<p style="color:var(--text3);font-size:13px;padding:8px 0">No income yet</p>';
+
+  // By person
+  const byP={Rohitha:{i:0,o:0},Chandrahas:{i:0,o:0},Both:{i:0,o:0}};
+  f.forEach(e=>{
+    if(byP[e.person]){
+      if(e.type==='income')byP[e.person].i+=e.amount;
+      else byP[e.person].o+=e.amount;
+    }
+  });
+  document.getElementById('d-by-person').innerHTML=Object.entries(byP).map(([p,v])=>`
+    <div class="srow">
+      <span class="srow-name">${p}</span>
+      <div style="display:flex;gap:10px">
+        <span class="srow-amt in">${fmt(v.i)}</span>
+        <span class="srow-amt out">${fmt(v.o)}</span>
+      </div>
+    </div>`).join('');
+
+  // Recent 8 entries
+  const recent=entries.slice(0,8);
+  const icons={income:'💰',expense:'💸'};
+  document.getElementById('d-recent').innerHTML=recent.length?recent.map(e=>`
+    <div class="recent-item">
+      <div class="recent-icon ${e.type==='income'?'inc':'exp'}">${icons[e.type]||'•'}</div>
+      <div class="recent-info">
+        <div class="recent-cat">${e.category}</div>
+        <div class="recent-meta">${e.date} · ${e.account} · ${e.person}</div>
+      </div>
+      <div class="recent-amt ${e.type==='income'?'inc':'exp'}">${e.type==='income'?'+':'-'}${fmt(e.amount)}</div>
+    </div>`).join(''):'<div style="padding:32px;text-align:center;color:var(--text3);font-size:14px">No entries yet — add your first one!</div>';
+}
+
+async function processEntry(){
+  const txt=document.getElementById('ai-input').value.trim();
+  if(!txt){toast('Type something first');return;}
+  document.getElementById('ai-btn').disabled=true;
+  document.getElementById('thinking').classList.add('show');
+  document.getElementById('preview').classList.remove('show');
+  try{
+    const r=await fetch('/api/categorise',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:txt})});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error+': '+d.details);
+    pending={...d,id:Date.now()};
+    showPreview(pending);
+  }catch(e){toast('AI error — try again');console.error(e);}
+  document.getElementById('ai-btn').disabled=false;
+  document.getElementById('thinking').classList.remove('show');
+}
+
+function showPreview(e){
+  const cats=e.type==='income'?INC:EXP;
+  document.getElementById('preview-fields').innerHTML=`
+    <div class="pf"><label>Type</label>
+      <select id="p-type" onchange="swapCats()">
+        <option value="income"${e.type==='income'?' selected':''}>Income</option>
+        <option value="expense"${e.type==='expense'?' selected':''}>Expense</option>
+      </select></div>
+    <div class="pf"><label>Category</label>
+      <select id="p-cat">${cats.map(c=>`<option value="${c}"${c===e.category?' selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="pf"><label>Amount ($)</label><input type="number" id="p-amt" value="${e.amount}" min="0" step="0.01"></div>
+    <div class="pf"><label>Account</label>
+      <select id="p-acc">
+        <option${e.account==='Rohitha - CBA'?' selected':''}>Rohitha - CBA</option>
+        <option${e.account==='Rohitha - NAB'?' selected':''}>Rohitha - NAB</option>
+        <option${e.account==='Chandrahas - Bank'?' selected':''}>Chandrahas - Bank</option>
+        <option${e.account==='Cash'?' selected':''}>Cash</option>
+        <option${e.account==='Unknown'?' selected':''}>Unknown</option>
+      </select></div>
+    <div class="pf"><label>Person</label>
+      <select id="p-person">
+        <option${e.person==='Rohitha'?' selected':''}>Rohitha</option>
+        <option${e.person==='Chandrahas'?' selected':''}>Chandrahas</option>
+        <option${e.person==='Both'?' selected':''}>Both</option>
+      </select></div>
+    <div class="pf"><label>Date</label><input type="date" id="p-date" value="${e.date}"></div>
+    <div class="pf" style="grid-column:1/-1"><label>Note</label><input type="text" id="p-note" value="${e.note||''}"></div>`;
+  document.getElementById('preview').classList.add('show');
+}
+
+function swapCats(){
+  const t=document.getElementById('p-type').value;
+  document.getElementById('p-cat').innerHTML=(t==='income'?INC:EXP).map(c=>`<option>${c}</option>`).join('');
+}
+
+function confirmEntry(){
+  const entry={
+    id:pending.id,type:document.getElementById('p-type').value,
+    category:document.getElementById('p-cat').value,
+    amount:parseFloat(document.getElementById('p-amt').value)||0,
+    account:document.getElementById('p-acc').value,
+    person:document.getElementById('p-person').value,
+    date:document.getElementById('p-date').value,
+    note:document.getElementById('p-note').value
+  };
+  if(!entry.amount||entry.amount<=0){toast('Amount must be greater than 0');return;}
+  saveEntry(entry);
+  discardPreview();
+  toast('Saved to your Google Sheet!');
+}
+
+function discardPreview(){
+  document.getElementById('preview').classList.remove('show');
+  document.getElementById('ai-input').value='';
+  pending=null;
+}
+
+function renderLedger(){
+  const ft=document.getElementById('f-type').value,fa=document.getElementById('f-account').value,
+        fp=document.getElementById('f-person').value,fc=document.getElementById('f-cat').value,
+        fm=document.getElementById('f-month').value;
+
+  const months=[...new Set(entries.map(e=>e.date?.slice(0,7)).filter(Boolean))].sort().reverse();
+  const ms=document.getElementById('f-month'),cm=ms.value;
+  ms.innerHTML='<option value="">All time</option>'+months.map(m=>`<option value="${m}"${m===cm?' selected':''}>${m}</option>`).join('');
+
+  const allCats=[...new Set(entries.map(e=>e.category))].sort();
+  const cs=document.getElementById('f-cat'),cur=cs.value;
+  cs.innerHTML='<option value="">All categories</option>'+allCats.map(c=>`<option value="${c}"${c===cur?' selected':''}>${c}</option>`).join('');
+
+  const f=entries.filter(e=>
+    (!ft||e.type===ft)&&(!fa||e.account===fa)&&(!fp||e.person===fp)&&
+    (!fc||e.category===fc)&&(!fm||e.date?.startsWith(fm))
+  );
+  const tb=document.getElementById('ledger-body');
+  if(!f.length){tb.innerHTML=`<tr class="empty-row"><td colspan="7">No entries found</td></tr>`;return;}
+  tb.innerHTML=f.map(e=>`<tr>
+    <td>${e.date}</td>
+    <td><span class="badge ${e.type==='income'?'inc':'exp'}">${e.type}</span></td>
+    <td>${e.category}</td><td>${e.account}</td><td>${e.person}</td>
+    <td style="font-weight:700;color:var(--${e.type==='income'?'green':'red'})">$${Number(e.amount).toFixed(2)}</td>
+    <td class="note-col" title="${e.note||''}">${e.note||'—'}</td>
+  </tr>`).join('');
+}
+
+function clearFilters(){['f-type','f-account','f-person','f-cat','f-month'].forEach(id=>document.getElementById(id).value='');renderLedger();}
+
+function switchTab(t,btn){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');btn.classList.add('active');
+  if(t==='ledger')renderLedger();
+  if(t==='dashboard')renderDashboard();
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// INIT
+const cfg=loadCFG();
+if(cfg.url){document.getElementById('main-app').style.display='block';loadEntries();}
+else{document.getElementById('setup-screen').style.display='flex';}
+</script>
+</body>
+</html>
