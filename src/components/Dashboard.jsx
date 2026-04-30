@@ -215,6 +215,9 @@ export default function Dashboard({
   const [filters, setFilters] = useState({ person: '', type: '', category: '' });
   const [deleteId, setDeleteId] = useState(null);
   const [toast, setToast] = useState('');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const txnListRef = useRef(null);
+  const budgetRef  = useRef(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -268,6 +271,24 @@ export default function Dashboard({
   const catTargets = setup.targets?.categories || {};
   const hasTargets = Object.keys(catTargets).some(k => catTargets[k] > 0);
 
+  const savingsRate = income > 0 ? Math.round(((income - expense) / income) * 100) : null;
+  const rateLabel   = savingsRate === null ? 'No income yet'
+    : savingsRate >= 30 ? 'Excellent' : savingsRate >= 20 ? 'Good'
+    : savingsRate >= 10 ? 'Fair' : 'Needs work';
+
+  const monthDots = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d   = new Date(now.getFullYear(), now.getMonth() - (6 - i), 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const lbl = d.toLocaleString('default', { month: 'short' }).slice(0, 1);
+      const mt  = transactions.filter(t => t.date?.startsWith(key));
+      const inc = mt.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const exp = mt.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      return { lbl, saved: mt.length > 0 && inc > exp, hasData: mt.length > 0 };
+    });
+  }, [transactions]);
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -276,7 +297,7 @@ export default function Dashboard({
           <button className={`sync-btn ${syncing ? 'syncing' : ''}`} onClick={onSync} title="Sync with Google Sheets">
             {syncing ? <><div className="spinner" /> Syncing…</> : '⟳ Sync'}
           </button>
-          <button className="btn-csv" onClick={onOpenCSV} title="Import bank CSV">↑ CSV</button>
+          <button className="btn-csv" onClick={onOpenCSV} title="Import bank statement CSV">↑ Bank CSV</button>
           <button className="btn-settings" onClick={onOpenSettings}>⚙ Settings</button>
         </div>
       </header>
@@ -308,57 +329,97 @@ export default function Dashboard({
           ))}
         </div>
 
+        {/* ── 4 Summary Cards ── */}
         <div className="summary-cards">
           <div className="summary-card income-card">
             <div className="card-label">Income</div>
             <div className="card-value income-val">{fmt(income)}</div>
             <div className="card-sub">{periodTxns.filter((t) => t.type === 'income').length} transactions</div>
+            <div className="card-icon ci-income">↑</div>
           </div>
           <div className="summary-card expense-card">
             <div className="card-label">Expenses</div>
             <div className="card-value expense-val">{fmt(expense)}</div>
             <div className="card-sub">{periodTxns.filter((t) => t.type === 'expense').length} transactions</div>
+            <div className="card-icon ci-expense">↓</div>
           </div>
           <div className={`summary-card balance-card ${balance < 0 ? 'negative' : ''}`}>
-            <div className="card-label">Running Balance</div>
+            <div className="card-label">Net Balance</div>
             <div className={`card-value ${balance >= 0 ? 'income-val' : 'expense-val'}`}>{fmt(balance)}</div>
             <div className="card-sub">
               {period !== 'all'
                 ? `${periodNet >= 0 ? '+' : ''}${fmt(periodNet)} this period`
-                : balance >= 0 ? '✓ Saving money' : '⚠ Spending more than earning'}
+                : balance >= 0 ? '✓ Saving money' : '⚠ Over budget'}
             </div>
+            <div className="card-icon ci-balance">◎</div>
+          </div>
+          <div className={`summary-card rate-card ${savingsRate !== null && savingsRate < 0 ? 'negative' : ''}`}>
+            <div className="card-label">Savings Rate</div>
+            <div className={`card-value ${savingsRate !== null && savingsRate >= 20 ? 'income-val' : savingsRate !== null ? 'expense-val' : ''}`}>
+              {savingsRate !== null ? `${savingsRate}%` : '—'}
+            </div>
+            <div className={`card-sub ${savingsRate !== null && savingsRate >= 20 ? 'rate-good' : 'rate-low'}`}>{rateLabel}</div>
+            <div className="card-icon ci-rate">★</div>
           </div>
         </div>
 
-        {/* ── Streak + Insights ── */}
+        {/* ── Streak + Coach cards ── */}
         {transactions.length > 0 && (
-          <div className="insights-row">
-            {streak.current > 0 && (
-              <div className="streak-badge">
-                <span className="streak-fire">🔥</span>
-                <div>
-                  <div className="streak-count">{streak.current} month{streak.current !== 1 ? 's' : ''}</div>
-                  <div className="streak-label">saving streak{streak.best > streak.current ? ` · best: ${streak.best}` : ''}</div>
-                </div>
+          <div className="dash-two-col">
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <span className="dash-card-title">SAVING STREAK</span>
+                <span className="streak-fire-big">🔥</span>
               </div>
-            )}
-            {insights.length > 0 && (
-              <div className="insights-panel">
-                {insights.map((ins, i) => (
-                  <div key={i} className={`insight-item ${ins.type}`}>
-                    <span className="insight-emoji">{ins.emoji}</span>
-                    <span className="insight-text">{ins.text}</span>
+              <div className="streak-num-lg">
+                {streak.current}
+                <span className="streak-unit-lg"> month{streak.current !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="streak-sub-text">
+                {streak.current > 0 ? 'Great job! Keep it up.' : 'Start saving this month!'}
+              </div>
+              <div className="month-dots">
+                {monthDots.map((dot, i) => (
+                  <div key={i} className="mdot-col">
+                    <div className={`mdot ${dot.saved ? 'mdot-saved' : dot.hasData ? 'mdot-miss' : 'mdot-empty'}`}>
+                      {dot.saved ? '✓' : ''}
+                    </div>
+                    <div className="mdot-lbl">{dot.lbl}</div>
                   </div>
                 ))}
               </div>
-            )}
+              {streak.best > streak.current && streak.best > 0 && (
+                <div className="streak-best-note">Best: {streak.best} months</div>
+              )}
+            </div>
+
+            <div className="dash-card">
+              <div className="dash-card-header">
+                <span className="dash-card-title">AI COACH</span>
+              </div>
+              {insights.length > 0 ? (
+                <div className="coach-list">
+                  {insights.map((ins, i) => (
+                    <div key={i} className={`coach-row coach-${ins.type}`}>
+                      <span className="coach-emoji">{ins.emoji}</span>
+                      <span className="coach-text">{ins.text}</span>
+                      <span className="coach-arrow">›</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="coach-empty">Add transactions to get personalised coaching.</p>
+              )}
+            </div>
           </div>
         )}
 
-        {/* ── Budget targets progress ── */}
+        {/* ── Budget targets ── */}
         {hasTargets && (
-          <div className="targets-section">
-            <div className="targets-title">Monthly Budgets</div>
+          <div className="targets-section dash-card" ref={budgetRef}>
+            <div className="dash-card-header">
+              <span className="dash-card-title">MONTHLY BUDGETS</span>
+            </div>
             <div className="targets-grid">
               {Object.entries(catTargets).filter(([, v]) => v > 0).map(([cat, target]) => {
                 const spent = expByCat[cat] || 0;
@@ -450,7 +511,7 @@ export default function Dashboard({
           )}
         </div>
 
-        <div className="txn-list">
+        <div className="txn-list" ref={txnListRef}>
           {filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">💬</div>
@@ -493,6 +554,31 @@ export default function Dashboard({
       </main>
 
       {toast && <div className="toast show">{toast}</div>}
+
+      <nav className="bottom-nav">
+        <button className={`bnav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setActiveTab('dashboard'); }}>
+          <span className="bnav-icon">⊞</span>
+          <span className="bnav-label">Dashboard</span>
+        </button>
+        <button className={`bnav-item ${activeTab === 'txns' ? 'active' : ''}`}
+          onClick={() => { txnListRef.current?.scrollIntoView({ behavior: 'smooth' }); setActiveTab('txns'); }}>
+          <span className="bnav-icon">☰</span>
+          <span className="bnav-label">Transactions</span>
+        </button>
+        <button className="bnav-add" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <span>+</span>
+        </button>
+        <button className={`bnav-item ${activeTab === 'budgets' ? 'active' : ''}`}
+          onClick={() => { budgetRef.current?.scrollIntoView({ behavior: 'smooth' }); setActiveTab('budgets'); }}>
+          <span className="bnav-icon">◎</span>
+          <span className="bnav-label">Budgets</span>
+        </button>
+        <button className="bnav-item" onClick={onOpenSettings}>
+          <span className="bnav-icon">⚙</span>
+          <span className="bnav-label">Settings</span>
+        </button>
+      </nav>
     </div>
   );
 }
