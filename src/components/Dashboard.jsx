@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   formatCurrency, formatDate, generateId,
-  filterByPeriod, getGreeting, parseNLStatement, CATEGORY_EMOJIS,
+  filterByPeriod, getGreeting, parseNLStatement, parseNLQuery, CATEGORY_EMOJIS,
   computeStreak, generateInsights,
 } from '../lib/utils';
 
 // ── NL Input ────────────────────────────────────────────────────────────────
-function NLInput({ setup, onSave, onToast }) {
+function NLInput({ setup, transactions, onSave, onToast }) {
   const [text, setText] = useState('');
   const [preview, setPreview] = useState(null);
   const [editForm, setEditForm] = useState(null);
+  const [queryResult, setQueryResult] = useState(null);
   const textareaRef = useRef(null);
+
+  const fmt    = (n) => formatCurrency(n, setup.currency || 'USD');
+  const fmtDt  = (d) => formatDate(d, setup.dateFormat);
 
   const allAccounts = (personName) => {
     const p = (setup.people || []).find((p) => p.name === personName);
@@ -18,7 +22,12 @@ function NLInput({ setup, onSave, onToast }) {
   };
 
   const handleParse = () => {
-    if (!text.trim()) { onToast('Type something first'); return; }
+    if (!text.trim()) { onToast('Type a transaction or ask a question'); return; }
+    // Try query first
+    const qr = parseNLQuery(text, setup, transactions);
+    if (qr) { setQueryResult(qr); setPreview(null); setEditForm(null); return; }
+    // Otherwise treat as transaction entry
+    setQueryResult(null);
     const parsed = parseNLStatement(text, setup);
     if (!parsed) return;
     setPreview(parsed);
@@ -45,6 +54,8 @@ function NLInput({ setup, onSave, onToast }) {
       return next;
     });
 
+  const clearQuery = () => { setQueryResult(null); setText(''); textareaRef.current?.focus(); };
+
   const handleSave = () => {
     const amt = parseFloat(editForm?.amount);
     if (!amt || amt <= 0) { onToast('Enter a valid amount'); return; }
@@ -62,6 +73,7 @@ function NLInput({ setup, onSave, onToast }) {
     setText('');
     setPreview(null);
     setEditForm(null);
+    setQueryResult(null);
     textareaRef.current?.focus();
   };
 
@@ -73,8 +85,8 @@ function NLInput({ setup, onSave, onToast }) {
     'paid $45 for groceries yesterday',
     'got salary $3500 today',
     'electricity bill $120',
-    'sent $300 to family last Monday',
-    'Netflix $15.99',
+    'total groceries from 1st to 15th',
+    'how much did I spend this month?',
   ];
 
   return (
@@ -98,7 +110,7 @@ function NLInput({ setup, onSave, onToast }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="e.g. paid $89 at Woolworths yesterday · got salary $3500 today · sent $200 to India"
+            placeholder="e.g. paid $89 at Woolworths yesterday   or   total groceries from 1st to 15th"
             rows={2}
           />
           <button className="nl-parse-btn" onClick={handleParse} disabled={!text.trim()}>
@@ -106,6 +118,31 @@ function NLInput({ setup, onSave, onToast }) {
           </button>
         </div>
       </div>
+
+      {queryResult && (
+        <div className="query-answer">
+          <div className="query-answer-main">
+            <span className="query-answer-icon">🔍</span>
+            <span className="query-answer-text">{queryResult.answer}</span>
+          </div>
+          {queryResult.filtered.length > 0 && (
+            <div className="query-txn-list">
+              {queryResult.filtered.slice(0, 6).map((t, i) => (
+                <div key={i} className="query-txn-row">
+                  <span className="query-txn-date">{fmtDt(t.date)}</span>
+                  <span className="query-txn-cat">{CATEGORY_EMOJIS[t.category] || '📌'} {t.category}</span>
+                  {t.notes && t.notes !== t.rawInput && <span className="query-txn-note">{t.notes}</span>}
+                  <span className={`query-txn-amt ${t.type}`}>{t.type === 'income' ? '+' : '-'}{fmt(t.amount)}</span>
+                </div>
+              ))}
+              {queryResult.filtered.length > 6 && (
+                <div className="query-more">…and {queryResult.filtered.length - 6} more</div>
+              )}
+            </div>
+          )}
+          <button className="query-clear" onClick={clearQuery}>Clear ✕</button>
+        </div>
+      )}
 
       {preview && editForm && (
         <div className="nl-preview">
@@ -256,7 +293,7 @@ export default function Dashboard({
           <p>Just describe what happened — I'll figure out the rest.</p>
         </div>
 
-        <NLInput setup={setup} onSave={handleSave} onToast={showToast} />
+        <NLInput setup={setup} transactions={transactions} onSave={handleSave} onToast={showToast} />
 
         <div className="period-tabs" style={{ marginTop: 24 }}>
           {[

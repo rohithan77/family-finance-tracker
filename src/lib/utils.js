@@ -436,6 +436,146 @@ function matchCategory(lower, categories) {
   return best || categories[0] || '';
 }
 
+// ─── NL Query Parser ──────────────────────────────────────────────────────
+
+const QUERY_STARTERS = /^(how|what|show|tell|list|find|which|total|sum|did i|did we|can you|give me)/i;
+
+function parseDateRange(lower) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  const ordinal = (n) => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  // "from Xth to Yth" / "from X to Y" (defaults to current month)
+  const dayRange = lower.match(/from\s+(\d{1,2})(?:st|nd|rd|th)?\s+to\s+(\d{1,2})(?:st|nd|rd|th)?/);
+  if (dayRange) {
+    const d1 = parseInt(dayRange[1]);
+    const d2 = parseInt(dayRange[2]);
+    return {
+      from: toISODate(new Date(y, m, d1)),
+      to:   toISODate(new Date(y, m, d2)),
+      label: `from the ${ordinal(d1)} to ${ordinal(d2)}`,
+    };
+  }
+
+  if (lower.includes('this month')) {
+    return { from: `${y}-${String(m + 1).padStart(2,'0')}-01`, to: toISODate(now), label: 'this month' };
+  }
+  if (lower.includes('last month')) {
+    const lm = new Date(y, m - 1, 1);
+    const lmEnd = new Date(y, m, 0);
+    return { from: toISODate(lm), to: toISODate(lmEnd), label: 'last month' };
+  }
+  if (lower.includes('this week')) {
+    const ws = new Date(now);
+    ws.setDate(now.getDate() - now.getDay());
+    return { from: toISODate(ws), to: toISODate(now), label: 'this week' };
+  }
+  if (lower.includes('last week')) {
+    const s = new Date(now); s.setDate(now.getDate() - now.getDay() - 7);
+    const e = new Date(now); e.setDate(now.getDate() - now.getDay() - 1);
+    return { from: toISODate(s), to: toISODate(e), label: 'last week' };
+  }
+  if (lower.includes('today')) {
+    const iso = toISODate(now);
+    return { from: iso, to: iso, label: 'today' };
+  }
+  if (lower.includes('yesterday')) {
+    const d = new Date(now); d.setDate(d.getDate() - 1);
+    const iso = toISODate(d);
+    return { from: iso, to: iso, label: 'yesterday' };
+  }
+  if (lower.includes('this year')) {
+    return { from: `${y}-01-01`, to: toISODate(now), label: 'this year' };
+  }
+  // Named month: "in april", "april 2025"
+  const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  for (let i = 0; i < MONTHS.length; i++) {
+    if (lower.includes(MONTHS[i])) {
+      const ym = lower.match(new RegExp(MONTHS[i] + '\\s+(\\d{4})'));
+      const yr = ym ? parseInt(ym[1]) : y;
+      const label = MONTHS[i].charAt(0).toUpperCase() + MONTHS[i].slice(1) + (ym ? ` ${yr}` : '');
+      return { from: `${yr}-${String(i+1).padStart(2,'0')}-01`, to: toISODate(new Date(yr, i+1, 0)), label: `in ${label}` };
+    }
+  }
+  return { from: null, to: null, label: '' };
+}
+
+/**
+ * Parse a natural-language query ("total groceries from 1st to 2nd").
+ * Returns { answer, filtered, total } or null if not a query.
+ */
+export function parseNLQuery(text, setup, transactions) {
+  if (!text.trim()) return null;
+  const lower = text.toLowerCase().trim();
+  if (!QUERY_STARTERS.test(lower) && !text.includes('?')) return null;
+
+  const { from, to, label } = parseDateRange(lower);
+
+  // Type filter
+  let typeFilter = null;
+  if (/\b(expense|spent|spending|paid|bought|cost)\b/.test(lower)) typeFilter = 'expense';
+  if (/\b(income|earned|received|salary|earning)\b/.test(lower)) typeFilter = 'income';
+
+  // Category filter — try exact match then keyword match
+  const allCats = [...(setup.incomeCategories || []), ...(setup.expenseCategories || [])];
+  let categoryFilter = null;
+  for (const cat of allCats) {
+    if (lower.includes(cat.toLowerCase())) { categoryFilter = cat; break; }
+  }
+  if (!categoryFilter) {
+    for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (!allCats.includes(cat)) continue;
+      if (kws.some(k => lower.includes(k))) { categoryFilter = cat; break; }
+    }
+  }
+
+  // Person filter
+  let personFilter = null;
+  for (const p of setup.people || []) {
+    if (lower.includes(p.name.toLowerCase())) { personFilter = p.name; break; }
+  }
+
+  const filtered = transactions.filter(t => {
+    if (!t.date) return false;
+    if (from && t.date < from) return false;
+    if (to && t.date > to) return false;
+    if (typeFilter && t.type !== typeFilter) return false;
+    if (categoryFilter && t.category !== categoryFilter) return false;
+    if (personFilter && t.personName !== personFilter) return false;
+    return true;
+  });
+
+  const total = filtered.reduce((s, t) => s + t.amount, 0);
+  const fmt = (n) => formatCurrency(n, setup?.currency || 'USD');
+  const isCount   = /how many|count/.test(lower);
+  const isAverage = /average|avg/.test(lower);
+
+  const subject = categoryFilter
+    || (typeFilter === 'income' ? 'income' : typeFilter === 'expense' ? 'expenses' : 'all transactions');
+  const personStr = personFilter ? ` for ${personFilter}` : '';
+  const dateStr   = label ? ` ${label}` : '';
+  const txStr     = `(${filtered.length} transaction${filtered.length !== 1 ? 's' : ''})`;
+
+  let answer;
+  if (filtered.length === 0) {
+    answer = `No ${subject} found${personStr}${dateStr}.`;
+  } else if (isCount) {
+    answer = `${filtered.length} ${subject} transaction${filtered.length !== 1 ? 's' : ''}${personStr}${dateStr}.`;
+  } else if (isAverage) {
+    answer = `Average ${subject}${personStr}${dateStr}: ${fmt(total / filtered.length)} ${txStr}.`;
+  } else {
+    answer = `Total ${subject}${personStr}${dateStr}: ${fmt(total)} ${txStr}.`;
+  }
+
+  return { answer, filtered, total, categoryFilter, typeFilter, personFilter, dateLabel: label };
+}
+
 /**
  * Parse a natural-language transaction statement into structured fields.
  * Returns a partial transaction object; caller should let user confirm/edit.
