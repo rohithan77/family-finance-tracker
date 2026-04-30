@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import SettingsPanel from './components/SettingsPanel';
 import GoogleAuth from './components/GoogleAuth';
 import PinLock from './components/PinLock';
+import CSVUpload from './components/CSVUpload';
 import {
   setScriptUrl,
   getSetup as fetchSetup,
@@ -29,6 +30,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
+  const [showCSV, setShowCSV] = useState(false);
 
   // Boot: check for saved script URL then decide phase
   useEffect(() => {
@@ -124,6 +126,16 @@ export default function App() {
     }
   };
 
+  const handleCSVImport = async (tx) => {
+    const txWithMeta = { ...tx, createdAt: tx.createdAt || new Date().toISOString() };
+    setTransactions(prev => {
+      const updated = [txWithMeta, ...prev];
+      cacheTransactions(updated);
+      return updated;
+    });
+    try { await appendTransaction(txWithMeta); } catch {}
+  };
+
   const handleDelete = async (id) => {
     const updated = transactions.filter(t => t.id !== id);
     setTransactions(updated);
@@ -189,6 +201,7 @@ export default function App() {
         syncing={syncing}
         syncError={syncError}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenCSV={() => setShowCSV(true)}
       />
       {showSettings && (
         <SettingsPanel
@@ -197,6 +210,13 @@ export default function App() {
           onSave={handleSettingsSave}
           onClose={() => setShowSettings(false)}
           onDisconnect={handleDisconnect}
+        />
+      )}
+      {showCSV && (
+        <CSVUpload
+          setup={setup}
+          onImport={handleCSVImport}
+          onClose={() => setShowCSV(false)}
         />
       )}
     </>

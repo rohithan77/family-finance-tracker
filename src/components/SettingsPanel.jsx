@@ -19,6 +19,10 @@ export default function SettingsPanel({ setup, scriptUrl, onSave, onClose, onDis
   const [showDanger, setShowDanger] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Budget targets
+  const [savingsTarget, setSavingsTarget] = useState(String(setup.targets?.monthlySavings || ''));
+  const [catTargets, setCatTargets] = useState(() => ({ ...(setup.targets?.categories || {}) }));
+
   // PIN state
   const [pinEnabled, setPinEnabled] = useState(!!getPinHash());
   const [newPin, setNewPin] = useState('');
@@ -97,6 +101,12 @@ export default function SettingsPanel({ setup, scriptUrl, onSave, onClose, onDis
       incomeCategories: incCats,
       expenseCategories: expCats,
       incomeSources: setup.incomeSources || [],
+      targets: {
+        monthlySavings: parseFloat(savingsTarget) || 0,
+        categories: Object.fromEntries(
+          Object.entries(catTargets).map(([k, v]) => [k, parseFloat(v) || 0])
+        ),
+      },
     };
     setSaved(true);
     setTimeout(() => onSave(updated), 200);
@@ -264,6 +274,39 @@ export default function SettingsPanel({ setup, scriptUrl, onSave, onClose, onDis
             <div className="s-cat-add">
               <input value={newExpCat} onChange={(e) => setNewExpCat(e.target.value)} placeholder="Add expense category…" onKeyDown={(e) => e.key === 'Enter' && addCat('expense')} />
               <button onClick={() => addCat('expense')}>+ Add</button>
+            </div>
+          </div>
+
+          {/* ── Budget Targets ── */}
+          <div className="settings-section">
+            <h3>🎯 Monthly Budget Targets</h3>
+            <p className="settings-hint">Set spending limits per category. Progress bars appear on your dashboard.</p>
+            <div className="s-field" style={{ marginBottom: 12 }}>
+              <label>Monthly Savings Goal ({setup.currency || 'USD'})</label>
+              <input
+                type="number"
+                className="s-acc-bal"
+                style={{ width: '100%' }}
+                value={savingsTarget}
+                onChange={(e) => setSavingsTarget(e.target.value)}
+                placeholder="e.g. 500"
+                min="0"
+              />
+            </div>
+            <div className="targets-settings-grid">
+              {expCats.map((cat) => (
+                <div key={cat} className="s-target-row">
+                  <label className="s-target-label">{cat}</label>
+                  <input
+                    type="number"
+                    className="s-acc-bal"
+                    value={catTargets[cat] || ''}
+                    onChange={(e) => setCatTargets(t => ({ ...t, [cat]: e.target.value }))}
+                    placeholder="no limit"
+                    min="0"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 

@@ -152,9 +152,93 @@ export const CATEGORY_EMOJIS = {
   'Other Income': '💵',
 };
 
+// ─── Saving streak ────────────────────────────────────────────────────────
+export function computeStreak(transactions) {
+  if (!transactions.length) return { current: 0, best: 0 };
+  const byMonth = {};
+  transactions.forEach(t => {
+    if (!t.date) return;
+    const key = t.date.slice(0, 7);
+    if (!byMonth[key]) byMonth[key] = { income: 0, expense: 0 };
+    if (t.type === 'income') byMonth[key].income += t.amount;
+    else byMonth[key].expense += t.amount;
+  });
+  const months = Object.keys(byMonth).sort();
+  let streak = 0, best = 0;
+  for (const m of months) {
+    if (byMonth[m].income > byMonth[m].expense) { streak++; best = Math.max(best, streak); }
+    else streak = 0;
+  }
+  return { current: streak, best };
+}
+
+// ─── Rule-based coaching insights ─────────────────────────────────────────
+export function generateInsights(transactions, setup) {
+  const insights = [];
+  const now = new Date();
+  const thisKey  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const lastDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastKey  = `${lastDate.getFullYear()}-${String(lastDate.getMonth() + 1).padStart(2, '0')}`;
+
+  const thisTxns = transactions.filter(t => t.date?.startsWith(thisKey));
+  const lastTxns = transactions.filter(t => t.date?.startsWith(lastKey));
+
+  const sum = (arr, type) => arr.filter(t => t.type === type).reduce((s, t) => s + t.amount, 0);
+  const thisInc = sum(thisTxns, 'income');
+  const thisExp = sum(thisTxns, 'expense');
+  const lastExp = sum(lastTxns, 'expense');
+
+  const fmt = (n) => formatCurrency(n, setup?.currency || 'USD');
+
+  if (thisInc > 0) {
+    const rate = Math.round(((thisInc - thisExp) / thisInc) * 100);
+    if (rate >= 20) insights.push({ type: 'positive', emoji: '🎉', text: `You're saving ${rate}% of income this month. Great work!` });
+    else if (rate > 0) insights.push({ type: 'info', emoji: '💡', text: `Savings rate: ${rate}% this month. Aim for 20%+ for a healthy buffer.` });
+    else insights.push({ type: 'warning', emoji: '⚠️', text: `Spending exceeds income by ${fmt(thisExp - thisInc)} this month.` });
+  }
+
+  if (lastExp > 0 && thisExp > 0) {
+    const pct = Math.round(((thisExp - lastExp) / lastExp) * 100);
+    if (pct > 20) insights.push({ type: 'warning', emoji: '📈', text: `Expenses up ${pct}% vs last month (+${fmt(thisExp - lastExp)}).` });
+    else if (pct < -10) insights.push({ type: 'positive', emoji: '📉', text: `Expenses down ${Math.abs(pct)}% vs last month — saved ${fmt(lastExp - thisExp)} extra!` });
+  }
+
+  const expByCat = {};
+  thisTxns.filter(t => t.type === 'expense').forEach(t => { expByCat[t.category] = (expByCat[t.category] || 0) + t.amount; });
+  const topCat = Object.entries(expByCat).sort((a, b) => b[1] - a[1])[0];
+  if (topCat && thisExp > 0) {
+    const pct = Math.round((topCat[1] / thisExp) * 100);
+    insights.push({ type: 'info', emoji: '🔍', text: `${topCat[0] || 'Uncategorised'} is your top expense at ${pct}% of spending (${fmt(topCat[1])}).` });
+  }
+
+  if (lastTxns.length > 0) {
+    const lastExpByCat = {};
+    lastTxns.filter(t => t.type === 'expense').forEach(t => { lastExpByCat[t.category] = (lastExpByCat[t.category] || 0) + t.amount; });
+    for (const [cat, thisAmt] of Object.entries(expByCat)) {
+      const lastAmt = lastExpByCat[cat] || 0;
+      if (lastAmt > 0 && thisAmt > lastAmt * 1.5 && thisAmt > 30) {
+        const pct = Math.round(((thisAmt - lastAmt) / lastAmt) * 100);
+        insights.push({ type: 'warning', emoji: '🚨', text: `${cat} jumped ${pct}% vs last month (${fmt(lastAmt)} → ${fmt(thisAmt)}).` });
+        break;
+      }
+    }
+  }
+
+  const catTargets = setup?.targets?.categories || {};
+  for (const [cat, target] of Object.entries(catTargets)) {
+    if (!target) continue;
+    const spent = expByCat[cat] || 0;
+    const pct = Math.round((spent / target) * 100);
+    if (pct >= 100) { insights.push({ type: 'warning', emoji: '🚫', text: `${cat} budget exceeded: ${fmt(spent)} of ${fmt(target)}.` }); break; }
+    else if (pct >= 80) { insights.push({ type: 'warning', emoji: '⚡', text: `${cat} at ${pct}% of budget — ${fmt(target - spent)} left.` }); break; }
+  }
+
+  return insights.slice(0, 4);
+}
+
 // ─── Natural Language Parser ───────────────────────────────────────────────
 
-const CATEGORY_KEYWORDS = {
+export const CATEGORY_KEYWORDS = {
   // Expenses
   'Groceries': [
     'grocery', 'groceries', 'supermarket', 'walmart', 'costco', 'whole foods',

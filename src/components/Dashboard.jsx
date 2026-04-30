@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   formatCurrency, formatDate, generateId,
   filterByPeriod, getGreeting, parseNLStatement, CATEGORY_EMOJIS,
+  computeStreak, generateInsights,
 } from '../lib/utils';
 
 // ── NL Input ────────────────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ function NLInput({ setup, onSave, onToast }) {
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard({
-  setup, transactions, onSave, onDelete, onSync, syncing, syncError, onOpenSettings,
+  setup, transactions, onSave, onDelete, onSync, syncing, syncError, onOpenSettings, onOpenCSV,
 }) {
   const [period, setPeriod] = useState('month');
   const [filters, setFilters] = useState({ person: '', type: '', category: '' });
@@ -219,6 +220,12 @@ export default function Dashboard({
   const isDetailed = setup.dashboardLayout === 'Detailed';
   const allCategories = [...new Set([...(setup.incomeCategories || []), ...(setup.expenseCategories || [])])];
 
+  const streak   = useMemo(() => computeStreak(transactions), [transactions]);
+  const insights = useMemo(() => generateInsights(transactions, setup), [transactions, setup]);
+
+  const catTargets = setup.targets?.categories || {};
+  const hasTargets = Object.keys(catTargets).some(k => catTargets[k] > 0);
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -227,6 +234,7 @@ export default function Dashboard({
           <button className={`sync-btn ${syncing ? 'syncing' : ''}`} onClick={onSync} title="Sync with Google Sheets">
             {syncing ? <><div className="spinner" /> Syncing…</> : '⟳ Sync'}
           </button>
+          <button className="btn-csv" onClick={onOpenCSV} title="Import bank CSV">↑ CSV</button>
           <button className="btn-settings" onClick={onOpenSettings}>⚙ Settings</button>
         </div>
       </header>
@@ -275,6 +283,56 @@ export default function Dashboard({
             <div className="card-sub">{balance >= 0 ? '✓ Saving money' : '⚠ Spending more than earning'}</div>
           </div>
         </div>
+
+        {/* ── Streak + Insights ── */}
+        {transactions.length > 0 && (
+          <div className="insights-row">
+            {streak.current > 0 && (
+              <div className="streak-badge">
+                <span className="streak-fire">🔥</span>
+                <div>
+                  <div className="streak-count">{streak.current} month{streak.current !== 1 ? 's' : ''}</div>
+                  <div className="streak-label">saving streak{streak.best > streak.current ? ` · best: ${streak.best}` : ''}</div>
+                </div>
+              </div>
+            )}
+            {insights.length > 0 && (
+              <div className="insights-panel">
+                {insights.map((ins, i) => (
+                  <div key={i} className={`insight-item ${ins.type}`}>
+                    <span className="insight-emoji">{ins.emoji}</span>
+                    <span className="insight-text">{ins.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Budget targets progress ── */}
+        {hasTargets && (
+          <div className="targets-section">
+            <div className="targets-title">Monthly Budgets</div>
+            <div className="targets-grid">
+              {Object.entries(catTargets).filter(([, v]) => v > 0).map(([cat, target]) => {
+                const spent = expByCat[cat] || 0;
+                const pct = Math.min(100, Math.round((spent / target) * 100));
+                const over = spent > target;
+                return (
+                  <div key={cat} className="target-row">
+                    <div className="target-info">
+                      <span className="target-cat">{CATEGORY_EMOJIS[cat] || '📌'} {cat}</span>
+                      <span className={`target-vals ${over ? 'over' : ''}`}>{fmt(spent)} / {fmt(target)}</span>
+                    </div>
+                    <div className="target-bar-bg">
+                      <div className={`target-bar ${over ? 'over' : pct >= 80 ? 'warn' : 'ok'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {isDetailed && (
           <div className="breakdown-grid">

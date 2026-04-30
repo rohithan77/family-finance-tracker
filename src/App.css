@@ -693,6 +693,88 @@ a { color: var(--accent); text-decoration: none; }
 .copy-btn:hover { opacity: .88; }
 .connect-btn { margin-top: 10px; width: 100%; }
 
+/* ── CSV Import button ───────────────────────────────────────── */
+.btn-csv { padding: 6px 12px; background: var(--accent-light); color: var(--accent); border-radius: var(--radius-full); font-size: .8rem; font-weight: 700; border: 1.5px solid var(--accent); }
+.btn-csv:hover { background: var(--accent); color: white; }
+
+/* ── Streak + Insights ───────────────────────────────────────── */
+.insights-row { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.streak-badge { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg,#fff7ed,#fef3c7); border: 1.5px solid #fbbf24; border-radius: var(--radius); padding: 12px 16px; }
+@media (prefers-color-scheme: dark) { .streak-badge { background: linear-gradient(135deg,rgba(251,191,36,.12),rgba(251,191,36,.06)); border-color: rgba(251,191,36,.35); } }
+.streak-fire { font-size: 2rem; line-height: 1; }
+.streak-count { font-size: 1.3rem; font-weight: 800; color: #d97706; line-height: 1.1; }
+.streak-label { font-size: .75rem; color: var(--text-2); }
+.insights-panel { display: flex; flex-direction: column; gap: 8px; }
+.insight-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: .83rem; line-height: 1.45; }
+.insight-item.positive { background: var(--green-bg); color: var(--green-text); }
+.insight-item.warning  { background: var(--red-bg);   color: var(--red-text); }
+.insight-item.info     { background: var(--accent-light); color: var(--accent-dark); }
+@media (prefers-color-scheme: dark) {
+  .insight-item.positive { background: rgba(5,150,105,.15); color: #34d399; }
+  .insight-item.warning  { background: rgba(220,38,38,.15);  color: #f87171; }
+  .insight-item.info     { background: rgba(139,92,246,.15); color: #a78bfa; }
+}
+.insight-emoji { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.insight-text { flex: 1; }
+
+/* ── Budget targets ──────────────────────────────────────────── */
+.targets-section { background: var(--card); border-radius: var(--radius); padding: 16px; margin-top: 16px; border: 1px solid var(--border); }
+.targets-title { font-size: .82rem; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
+.targets-grid { display: flex; flex-direction: column; gap: 10px; }
+.target-row { display: flex; flex-direction: column; gap: 4px; }
+.target-info { display: flex; justify-content: space-between; align-items: center; }
+.target-cat  { font-size: .82rem; font-weight: 600; color: var(--text); }
+.target-vals { font-size: .78rem; color: var(--text-2); }
+.target-vals.over { color: var(--red); font-weight: 700; }
+.target-bar-bg { background: var(--border); border-radius: var(--radius-full); height: 6px; overflow: hidden; }
+.target-bar    { height: 100%; border-radius: var(--radius-full); transition: width .4s ease; }
+.target-bar.ok   { background: var(--green); }
+.target-bar.warn { background: #f59e0b; }
+.target-bar.over { background: var(--red); }
+
+/* ── Settings targets grid ───────────────────────────────────── */
+.settings-hint { font-size: .8rem; color: var(--text-2); margin: -6px 0 12px; }
+.targets-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.s-target-row { display: flex; flex-direction: column; gap: 3px; }
+.s-target-label { font-size: .75rem; color: var(--text-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── CSV Upload modal ────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+.csv-modal { background: var(--card); border-radius: var(--radius-lg); width: 100%; max-width: 640px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg); }
+.csv-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.csv-modal-header h2 { font-size: 1rem; font-weight: 700; margin: 0; }
+.csv-upload-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.csv-drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: border-color .2s, background .2s; }
+.csv-drop-zone:hover { border-color: var(--accent); background: var(--accent-light); }
+.csv-drop-icon { font-size: 2.5rem; }
+.csv-drop-title { font-size: .95rem; font-weight: 700; color: var(--text); }
+.csv-drop-sub { font-size: .8rem; color: var(--text-2); }
+.csv-hint { font-size: .75rem; color: var(--text-3); line-height: 1.5; }
+.csv-summary-row { padding: 12px 20px; font-size: .85rem; color: var(--text-2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.csv-summary-row .income-text { color: var(--green); font-weight: 600; }
+.csv-summary-row .expense-text { color: var(--red); font-weight: 600; }
+.csv-table-wrap { overflow-y: auto; flex: 1; padding: 0 4px; }
+.csv-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.csv-table th { padding: 8px 10px; text-align: left; font-size: .72rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); }
+.csv-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-2); color: var(--text); vertical-align: middle; }
+.csv-td-date { white-space: nowrap; color: var(--text-2); font-size: .76rem; }
+.csv-td-desc { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.csv-amt { font-weight: 600; }
+.csv-amt.income  { color: var(--green); }
+.csv-amt.expense { color: var(--red); }
+.type-badge { display: inline-block; padding: 2px 8px; border-radius: var(--radius-full); font-size: .72rem; font-weight: 700; text-transform: capitalize; }
+.type-badge.income  { background: var(--green-bg);  color: var(--green-text); }
+.type-badge.expense { background: var(--red-bg);    color: var(--red-text); }
+.csv-more { text-align: center; padding: 8px; font-size: .78rem; color: var(--text-3); }
+.csv-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.csv-progress-body, .csv-done-body { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 20px; }
+.csv-progress-icon, .csv-done-icon { font-size: 3rem; }
+.csv-progress-title, .csv-done-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.csv-done-sub { font-size: .85rem; color: var(--text-2); }
+.csv-progress-bar-wrap { width: 100%; max-width: 300px; background: var(--border); border-radius: var(--radius-full); height: 8px; overflow: hidden; }
+.csv-progress-bar { height: 100%; background: var(--accent); border-radius: var(--radius-full); transition: width .3s ease; }
+.csv-progress-pct { font-size: .85rem; color: var(--text-2); font-weight: 600; }
+
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .app-main { padding: 16px 14px 40px; }
