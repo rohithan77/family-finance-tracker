@@ -298,7 +298,6 @@ export default function Dashboard({
             {syncing ? <><div className="spinner" /> Syncing…</> : '⟳ Sync'}
           </button>
           <button className="btn-csv" onClick={onOpenCSV} title="Import bank statement CSV">↑ Bank CSV</button>
-          <button className="btn-settings" onClick={onOpenSettings}>⚙ Settings</button>
         </div>
       </header>
 
@@ -572,6 +571,10 @@ export default function Dashboard({
         <button className="bnav-item" onClick={onOpenCSV}>
           <span className="bnav-icon">↑</span>
           <span className="bnav-label">Upload</span>
+        </button>
+        <button className="bnav-item" onClick={onOpenSettings}>
+          <span className="bnav-icon">⚙</span>
+          <span className="bnav-label">Settings</span>
         </button>
       </nav>
     </div>
