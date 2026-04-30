@@ -205,7 +205,12 @@ export default function Dashboard({
 
   const income = periodTxns.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = periodTxns.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const balance = income - expense;
+
+  // Running balance = all-time cumulative (carries forward across months)
+  const allIncome = transactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const allExpense = transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const balance = allIncome - allExpense;
+  const periodNet = income - expense;
 
   const expByCat = {}, incByCat = {};
   periodTxns.forEach((t) => {
@@ -278,9 +283,13 @@ export default function Dashboard({
             <div className="card-sub">{periodTxns.filter((t) => t.type === 'expense').length} transactions</div>
           </div>
           <div className={`summary-card balance-card ${balance < 0 ? 'negative' : ''}`}>
-            <div className="card-label">Net Balance</div>
+            <div className="card-label">Running Balance</div>
             <div className={`card-value ${balance >= 0 ? 'income-val' : 'expense-val'}`}>{fmt(balance)}</div>
-            <div className="card-sub">{balance >= 0 ? '✓ Saving money' : '⚠ Spending more than earning'}</div>
+            <div className="card-sub">
+              {period !== 'all'
+                ? `${periodNet >= 0 ? '+' : ''}${fmt(periodNet)} this period`
+                : balance >= 0 ? '✓ Saving money' : '⚠ Spending more than earning'}
+            </div>
           </div>
         </div>
 
