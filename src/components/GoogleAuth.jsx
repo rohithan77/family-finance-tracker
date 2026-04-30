@@ -12,6 +12,11 @@ function doGet(e) {
       const val = ensureSheet(ss,'Setup').getRange('A1').getValue();
       return respond({ setup: val ? JSON.parse(val) : null });
     }
+    if (action === 'saveSetup') {
+      const setup = JSON.parse(e.parameter.data || 'null');
+      ensureSheet(ss,'Setup').getRange('A1').setValue(JSON.stringify(setup));
+      return respond({ ok: true });
+    }
     if (action === 'getTransactions') {
       const sheet = ensureSheet(ss,'Transactions');
       const data = sheet.getDataRange().getValues();
@@ -22,27 +27,19 @@ function doGet(e) {
       });
       return respond({ transactions: txns });
     }
+    if (action === 'addTransaction') {
+      const tx = JSON.parse(e.parameter.data || '{}');
+      const sheet = ensureSheet(ss,'Transactions');
+      if(sheet.getLastRow()===0) sheet.appendRow(HEADERS);
+      sheet.appendRow(HEADERS.map(h=>tx[h]!==undefined?String(tx[h]):''));
+      return respond({ ok: true });
+    }
     if (action === 'deleteTransaction') {
       const id = e.parameter.id;
       const sheet = ensureSheet(ss,'Transactions');
       const ids = sheet.getRange(1,1,sheet.getLastRow(),1).getValues();
       for (let i=1;i<ids.length;i++) { if(ids[i][0]===id){sheet.deleteRow(i+1);return respond({ok:true});} }
       return respond({ ok: false });
-    }
-    return respond({ error: 'Unknown: '+action });
-  } catch(err) { return respond({ error: err.toString() }); }
-}
-function doPost(e) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const action = (e.parameter.action||'').trim();
-    const body = JSON.parse(e.postData.contents);
-    if (action==='saveSetup') { ensureSheet(ss,'Setup').getRange('A1').setValue(JSON.stringify(body)); return respond({ok:true}); }
-    if (action==='addTransaction') {
-      const sheet = ensureSheet(ss,'Transactions');
-      if(sheet.getLastRow()===0) sheet.appendRow(HEADERS);
-      sheet.appendRow(HEADERS.map(h=>body[h]!==undefined?String(body[h]):''));
-      return respond({ok:true});
     }
     return respond({ error: 'Unknown: '+action });
   } catch(err) { return respond({ error: err.toString() }); }

@@ -1,7 +1,6 @@
 // Google Apps Script backend — no OAuth required.
-// User creates a Google Sheet, pastes the provided Apps Script code,
-// deploys as Web App (Execute as: Me, Who has access: Anyone),
-// then pastes the deployed URL here.
+// All operations use GET requests with query params to avoid the
+// POST-redirect-to-GET issue with Google Apps Script web apps.
 
 let SCRIPT_URL = '';
 
@@ -9,11 +8,13 @@ export function setScriptUrl(url) {
   SCRIPT_URL = url;
 }
 
-// ── HTTP helpers ─────────────────────────────────────────────────────────────
+// ── HTTP helper ──────────────────────────────────────────────────────────────
 
-async function parseResponse(resp) {
+async function apiGet(action, params = {}) {
+  if (!SCRIPT_URL) throw new Error('no_script_url');
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const resp = await fetch(`${SCRIPT_URL}?${qs}`, { redirect: 'follow' });
   const text = await resp.text();
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   try {
     const data = JSON.parse(text);
     if (data.error) throw new Error(data.error);
@@ -27,30 +28,10 @@ async function parseResponse(resp) {
   }
 }
 
-async function apiGet(action, params = {}) {
-  if (!SCRIPT_URL) throw new Error('no_script_url');
-  const qs = new URLSearchParams({ action, ...params }).toString();
-  const resp = await fetch(`${SCRIPT_URL}?${qs}`, { redirect: 'follow' });
-  return parseResponse(resp);
-}
-
-async function apiPost(action, body) {
-  if (!SCRIPT_URL) throw new Error('no_script_url');
-  // Send as text/plain to avoid CORS preflight (Apps Script allows simple requests)
-  const resp = await fetch(`${SCRIPT_URL}?action=${encodeURIComponent(action)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(body),
-    redirect: 'follow',
-  });
-  return parseResponse(resp);
-}
-
 // ── Public API ───────────────────────────────────────────────────────────────
 
 export async function testConnection() {
-  const data = await apiGet('test');
-  return data; // { ok: true, name: '...' }
+  return apiGet('test');
 }
 
 export async function getSetup() {
@@ -59,7 +40,7 @@ export async function getSetup() {
 }
 
 export async function saveSetup(setup) {
-  await apiPost('saveSetup', setup);
+  await apiGet('saveSetup', { data: JSON.stringify(setup) });
 }
 
 export async function getTransactions() {
@@ -68,7 +49,7 @@ export async function getTransactions() {
 }
 
 export async function appendTransaction(tx) {
-  await apiPost('addTransaction', tx);
+  await apiGet('addTransaction', { data: JSON.stringify(tx) });
 }
 
 export async function removeTransaction(txId) {
