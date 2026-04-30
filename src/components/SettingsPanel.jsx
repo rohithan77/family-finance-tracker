@@ -1,76 +1,130 @@
 import React, { useState } from 'react';
+import { generateId } from '../lib/utils';
 
 export default function SettingsPanel({ setup, onSave, onClose }) {
-  const [form, setForm] = useState({
-    p1Name: setup.person1?.name || '',
-    p1Bank: setup.person1?.bank || '',
-    p1Balance: String(setup.person1?.balance ?? 0),
-    p2Name: setup.person2?.name || '',
-    p2Bank: setup.person2?.bank || '',
-    p2Balance: String(setup.person2?.balance ?? 0),
-    currency: setup.currency || 'USD',
-    dateFormat: setup.dateFormat || 'MM/DD/YYYY',
-    lifestyle: setup.lifestyle || 'Moderate',
-    dashboardLayout: setup.dashboardLayout || 'Simple',
-    incomeCategories: [...(setup.incomeCategories || [])],
-    expenseCategories: [...(setup.expenseCategories || [])],
-  });
+  // Deep-clone people so we can mutate locally
+  const [people, setPeople] = useState(
+    () => (setup.people || []).map((p) => ({
+      ...p,
+      accounts: (p.accounts || []).map((a) => ({ ...a })),
+    }))
+  );
+  const [newPersonName, setNewPersonName] = useState('');
+  const [newAccount, setNewAccount] = useState({}); // {personId: {name, balance}}
 
+  const [currency, setCurrency] = useState(setup.currency || 'USD');
+  const [dateFormat, setDateFormat] = useState(setup.dateFormat || 'MM/DD/YYYY');
+  const [dashboardLayout, setDashboardLayout] = useState(setup.dashboardLayout || 'Simple');
+  const [lifestyle, setLifestyle] = useState(setup.lifestyle || 'Moderate');
+  const [incCats, setIncCats] = useState([...(setup.incomeCategories || [])]);
+  const [expCats, setExpCats] = useState([...(setup.expenseCategories || [])]);
   const [newIncCat, setNewIncCat] = useState('');
   const [newExpCat, setNewExpCat] = useState('');
   const [showDanger, setShowDanger] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  // ── People helpers ──────────────────────────────────────
+  const addPerson = () => {
+    const name = newPersonName.trim();
+    if (!name) return;
+    setPeople((ps) => [
+      ...ps,
+      { id: generateId(), name, accounts: [{ id: generateId(), name: 'Main Bank', balance: 0 }] },
+    ]);
+    setNewPersonName('');
+  };
 
+  const removePerson = (id) => {
+    if (people.length <= 1) return;
+    setPeople((ps) => ps.filter((p) => p.id !== id));
+  };
+
+  const updatePersonField = (id, field, value) => {
+    setPeople((ps) => ps.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  };
+
+  // ── Account helpers ─────────────────────────────────────
+  const addAccount = (personId) => {
+    const na = newAccount[personId] || {};
+    const name = (na.name || '').trim();
+    if (!name) return;
+    const acc = { id: generateId(), name, balance: parseFloat(na.balance) || 0 };
+    setPeople((ps) =>
+      ps.map((p) =>
+        p.id === personId ? { ...p, accounts: [...p.accounts, acc] } : p
+      )
+    );
+    setNewAccount((n) => ({ ...n, [personId]: { name: '', balance: '' } }));
+  };
+
+  const removeAccount = (personId, accId) => {
+    setPeople((ps) =>
+      ps.map((p) =>
+        p.id === personId
+          ? { ...p, accounts: p.accounts.filter((a) => a.id !== accId) }
+          : p
+      )
+    );
+  };
+
+  const updateAccountField = (personId, accId, field, value) => {
+    setPeople((ps) =>
+      ps.map((p) =>
+        p.id === personId
+          ? {
+              ...p,
+              accounts: p.accounts.map((a) =>
+                a.id === accId ? { ...a, [field]: value } : a
+              ),
+            }
+          : p
+      )
+    );
+  };
+
+  const updNewAcc = (personId, field, value) => {
+    setNewAccount((n) => ({ ...n, [personId]: { ...(n[personId] || {}), [field]: value } }));
+  };
+
+  // ── Category helpers ────────────────────────────────────
   const addCat = (type) => {
     const raw = type === 'income' ? newIncCat : newExpCat;
     const cat = raw.trim();
     if (!cat) return;
-    const key = type === 'income' ? 'incomeCategories' : 'expenseCategories';
-    setForm((f) => ({ ...f, [key]: [...f[key], cat] }));
-    if (type === 'income') setNewIncCat('');
-    else setNewExpCat('');
+    if (type === 'income') { setIncCats((cs) => [...cs, cat]); setNewIncCat(''); }
+    else { setExpCats((cs) => [...cs, cat]); setNewExpCat(''); }
   };
 
   const removeCat = (type, cat) => {
-    const key = type === 'income' ? 'incomeCategories' : 'expenseCategories';
-    setForm((f) => ({ ...f, [key]: f[key].filter((c) => c !== cat) }));
+    if (type === 'income') setIncCats((cs) => cs.filter((c) => c !== cat));
+    else setExpCats((cs) => cs.filter((c) => c !== cat));
   };
 
+  // ── Save / Reset ────────────────────────────────────────
   const handleSave = () => {
     const updated = {
-      person1: {
-        name: form.p1Name.trim() || 'Partner 1',
-        bank: form.p1Bank.trim() || 'Main Bank',
-        balance: parseFloat(form.p1Balance) || 0,
-      },
-      person2: {
-        name: form.p2Name.trim() || 'Partner 2',
-        bank: form.p2Bank.trim() || 'Main Bank',
-        balance: parseFloat(form.p2Balance) || 0,
-      },
+      people: people.map((p) => ({
+        ...p,
+        name: p.name.trim() || 'Person',
+        accounts: p.accounts.length > 0
+          ? p.accounts
+          : [{ id: generateId(), name: 'Main Bank', balance: 0 }],
+      })),
       country: setup.country,
-      currency: form.currency,
-      dateFormat: form.dateFormat,
-      lifestyle: form.lifestyle,
-      dashboardLayout: form.dashboardLayout,
-      incomeCategories: form.incomeCategories,
-      expenseCategories: form.expenseCategories,
+      currency,
+      dateFormat,
+      lifestyle,
+      dashboardLayout,
+      incomeCategories: incCats,
+      expenseCategories: expCats,
       incomeSources: setup.incomeSources || [],
     };
     setSaved(true);
-    setTimeout(() => {
-      onSave(updated);
-    }, 300);
+    setTimeout(() => onSave(updated), 300);
   };
 
   const handleReset = () => {
-    if (
-      window.confirm(
-        'This will permanently delete all your transactions and settings. Continue?'
-      )
-    ) {
+    if (window.confirm('Permanently delete all transactions and settings?')) {
       localStorage.removeItem('ff_setup_v2');
       localStorage.removeItem('ff_transactions_v2');
       window.location.reload();
@@ -78,101 +132,113 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
   };
 
   return (
-    <div
-      className="settings-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="settings-panel">
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="settings-header">
           <h2>Settings</h2>
-          <button className="settings-close" onClick={onClose}>
-            ✕
-          </button>
+          <button className="settings-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* ── Body ── */}
         <div className="settings-body">
-          {/* Family Members */}
+          {/* ── People & Accounts ── */}
           <div className="settings-section">
-            <h3>Family Members</h3>
+            <h3>People &amp; Accounts</h3>
 
-            <div className="settings-person">
-              <div className="settings-person-label">Person 1</div>
-              <div className="settings-fields">
-                <div className="s-field">
-                  <label>Name</label>
+            {people.map((person, pIdx) => (
+              <div key={person.id} className="settings-person">
+                {/* Person name row */}
+                <div className="s-person-header">
                   <input
-                    value={form.p1Name}
-                    onChange={(e) => upd('p1Name', e.target.value)}
-                    placeholder="Partner 1"
+                    className="s-person-name-input"
+                    value={person.name}
+                    onChange={(e) => updatePersonField(person.id, 'name', e.target.value)}
+                    placeholder={`Person ${pIdx + 1}`}
                   />
+                  {people.length > 1 && (
+                    <button className="s-remove-person" onClick={() => removePerson(person.id)}>
+                      Remove person
+                    </button>
+                  )}
                 </div>
-                <div className="s-field">
-                  <label>Bank</label>
-                  <input
-                    value={form.p1Bank}
-                    onChange={(e) => upd('p1Bank', e.target.value)}
-                    placeholder="Main Bank"
-                  />
-                </div>
-                <div className="s-field">
-                  <label>Opening Balance</label>
-                  <input
-                    type="number"
-                    value={form.p1Balance}
-                    onChange={(e) => upd('p1Balance', e.target.value)}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                  />
+
+                {/* Accounts for this person */}
+                <div className="s-accounts">
+                  {person.accounts.map((acc) => (
+                    <div key={acc.id} className="s-account-row">
+                      <input
+                        className="s-acc-name"
+                        value={acc.name}
+                        onChange={(e) =>
+                          updateAccountField(person.id, acc.id, 'name', e.target.value)
+                        }
+                        placeholder="Account name"
+                      />
+                      <input
+                        type="number"
+                        className="s-acc-bal"
+                        value={acc.balance}
+                        onChange={(e) =>
+                          updateAccountField(person.id, acc.id, 'balance', parseFloat(e.target.value) || 0)
+                        }
+                        placeholder="Balance"
+                        min="0"
+                        step="0.01"
+                      />
+                      <button
+                        className="s-acc-remove"
+                        onClick={() => removeAccount(person.id, acc.id)}
+                        title="Remove account"
+                      >×</button>
+                    </div>
+                  ))}
+
+                  {/* Add account */}
+                  <div className="s-add-account">
+                    <input
+                      value={newAccount[person.id]?.name || ''}
+                      onChange={(e) => updNewAcc(person.id, 'name', e.target.value)}
+                      placeholder="New account name..."
+                      onKeyDown={(e) => e.key === 'Enter' && addAccount(person.id)}
+                      className="s-acc-name"
+                    />
+                    <input
+                      type="number"
+                      value={newAccount[person.id]?.balance || ''}
+                      onChange={(e) => updNewAcc(person.id, 'balance', e.target.value)}
+                      placeholder="Balance"
+                      className="s-acc-bal"
+                      min="0"
+                      step="0.01"
+                    />
+                    <button
+                      className="s-acc-add-btn"
+                      onClick={() => addAccount(person.id)}
+                    >+ Add</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
 
-            <div className="settings-person">
-              <div className="settings-person-label">Person 2</div>
-              <div className="settings-fields">
-                <div className="s-field">
-                  <label>Name</label>
-                  <input
-                    value={form.p2Name}
-                    onChange={(e) => upd('p2Name', e.target.value)}
-                    placeholder="Partner 2"
-                  />
-                </div>
-                <div className="s-field">
-                  <label>Bank</label>
-                  <input
-                    value={form.p2Bank}
-                    onChange={(e) => upd('p2Bank', e.target.value)}
-                    placeholder="Main Bank"
-                  />
-                </div>
-                <div className="s-field">
-                  <label>Opening Balance</label>
-                  <input
-                    type="number"
-                    value={form.p2Balance}
-                    onChange={(e) => upd('p2Balance', e.target.value)}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
+            {/* Add person */}
+            <div className="s-add-person">
+              <input
+                value={newPersonName}
+                onChange={(e) => setNewPersonName(e.target.value)}
+                placeholder="Add another person..."
+                onKeyDown={(e) => e.key === 'Enter' && addPerson()}
+              />
+              <button onClick={addPerson}>+ Add Person</button>
             </div>
           </div>
 
-          {/* Preferences */}
+          {/* ── Preferences ── */}
           <div className="settings-section">
             <h3>Preferences</h3>
             <div className="settings-fields">
               <div className="s-field">
                 <label>Currency</label>
-                <select value={form.currency} onChange={(e) => upd('currency', e.target.value)}>
+                <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   {['USD', 'INR', 'AUD', 'GBP', 'EUR', 'CAD'].map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -180,7 +246,7 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
               </div>
               <div className="s-field">
                 <label>Date Format</label>
-                <select value={form.dateFormat} onChange={(e) => upd('dateFormat', e.target.value)}>
+                <select value={dateFormat} onChange={(e) => setDateFormat(e.target.value)}>
                   <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                   <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                   <option value="YYYY-MM-DD">YYYY-MM-DD</option>
@@ -188,17 +254,14 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
               </div>
               <div className="s-field">
                 <label>Dashboard</label>
-                <select
-                  value={form.dashboardLayout}
-                  onChange={(e) => upd('dashboardLayout', e.target.value)}
-                >
+                <select value={dashboardLayout} onChange={(e) => setDashboardLayout(e.target.value)}>
                   <option value="Simple">Simple</option>
                   <option value="Detailed">Detailed</option>
                 </select>
               </div>
               <div className="s-field">
                 <label>Lifestyle</label>
-                <select value={form.lifestyle} onChange={(e) => upd('lifestyle', e.target.value)}>
+                <select value={lifestyle} onChange={(e) => setLifestyle(e.target.value)}>
                   <option>Basic</option>
                   <option>Moderate</option>
                   <option>Luxury</option>
@@ -207,19 +270,16 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Income Categories */}
+          {/* ── Income Categories ── */}
           <div className="settings-section">
             <h3>Income Categories</h3>
             <div className="s-cat-chips">
-              {form.incomeCategories.map((cat) => (
+              {incCats.map((cat) => (
                 <div key={cat} className="s-chip income-chip">
                   {cat}
                   <button onClick={() => removeCat('income', cat)}>×</button>
                 </div>
               ))}
-              {form.incomeCategories.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--text3)' }}>No categories yet</p>
-              )}
             </div>
             <div className="s-cat-add">
               <input
@@ -232,19 +292,16 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Expense Categories */}
+          {/* ── Expense Categories ── */}
           <div className="settings-section">
             <h3>Expense Categories</h3>
             <div className="s-cat-chips">
-              {form.expenseCategories.map((cat) => (
+              {expCats.map((cat) => (
                 <div key={cat} className="s-chip expense-chip">
                   {cat}
                   <button onClick={() => removeCat('expense', cat)}>×</button>
                 </div>
               ))}
-              {form.expenseCategories.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--text3)' }}>No categories yet</p>
-              )}
             </div>
             <div className="s-cat-add">
               <input
@@ -257,7 +314,7 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
             </div>
           </div>
 
-          {/* Danger Zone */}
+          {/* ── Danger Zone ── */}
           <div className="settings-section danger-zone">
             <h3>Danger Zone</h3>
             {!showDanger ? (
@@ -266,9 +323,7 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
               </button>
             ) : (
               <>
-                <p className="danger-warning">
-                  These actions are permanent and cannot be undone.
-                </p>
+                <p className="danger-warning">These actions are permanent and cannot be undone.</p>
                 <button className="btn-danger" onClick={handleReset}>
                   🗑 Reset App (delete all data)
                 </button>
@@ -277,17 +332,10 @@ export default function SettingsPanel({ setup, onSave, onClose }) {
           </div>
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div className="settings-footer">
-          <button className="btn-cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn-save"
-            onClick={handleSave}
-            disabled={saved}
-            style={{ opacity: saved ? 0.7 : 1 }}
-          >
+          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-save" onClick={handleSave} disabled={saved} style={{ opacity: saved ? 0.7 : 1 }}>
             {saved ? 'Saved!' : 'Save Changes'}
           </button>
         </div>

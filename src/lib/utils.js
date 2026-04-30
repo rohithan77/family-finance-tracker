@@ -1,3 +1,4 @@
+// ─── Currency ──────────────────────────────────────────────────────────────
 export const CURRENCIES = {
   USD: { locale: 'en-US' },
   INR: { locale: 'en-IN' },
@@ -17,6 +18,15 @@ export const formatCurrency = (amount, currency = 'USD') => {
   }).format(amount);
 };
 
+// ─── Date ──────────────────────────────────────────────────────────────────
+export const toISODate = (d) => {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+};
+
+export const getTodayDate = () => toISODate(new Date());
+
 export const formatDate = (dateStr, fmt = 'MM/DD/YYYY') => {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
@@ -28,16 +38,11 @@ export const formatDate = (dateStr, fmt = 'MM/DD/YYYY') => {
   return `${mm}/${dd}/${yyyy}`;
 };
 
-export const getTodayDate = () => {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-};
-
+// ─── ID generation ─────────────────────────────────────────────────────────
 export const generateId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
+// ─── Period filter ─────────────────────────────────────────────────────────
 export const filterByPeriod = (txns, period) => {
   if (period === 'all') return txns;
   const now = new Date();
@@ -47,10 +52,7 @@ export const filterByPeriod = (txns, period) => {
     if (!t.date) return false;
     const d = new Date(t.date + 'T00:00:00');
     if (period === 'month') return d.getFullYear() === y && d.getMonth() === m;
-    if (period === '3months') {
-      const cutoff = new Date(y, m - 2, 1);
-      return d >= cutoff;
-    }
+    if (period === '3months') return d >= new Date(y, m - 2, 1);
     if (period === 'year') return d.getFullYear() === y;
     return true;
   });
@@ -63,38 +65,19 @@ export const getGreeting = () => {
   return 'Good evening';
 };
 
+// ─── Constants ─────────────────────────────────────────────────────────────
 export const DEFAULT_INCOME_CATS = [
-  'Salary',
-  'Freelance',
-  'Business Income',
-  'Investments',
-  'Rental Income',
-  'Government Benefits',
-  'Tax Refund',
-  'Gift / Inheritance',
-  'Other Income',
+  'Salary', 'Freelance', 'Business Income', 'Investments',
+  'Rental Income', 'Government Benefits', 'Tax Refund',
+  'Gift / Inheritance', 'Other Income',
 ];
 
 export const DEFAULT_EXPENSE_CATS = [
-  'Housing / Rent',
-  'Groceries',
-  'Dining Out',
-  'Transport / Fuel',
-  'Utilities',
-  'Internet & Phone',
-  'Healthcare',
-  'Insurance',
-  'Shopping / Clothing',
-  'Entertainment',
-  'Education',
-  'Travel',
-  'Gym & Fitness',
-  'Personal Care',
-  'Subscriptions',
-  'Remittance',
-  'Savings / Investments',
-  'Gifts & Donations',
-  'Other',
+  'Housing / Rent', 'Groceries', 'Dining Out', 'Transport / Fuel',
+  'Utilities', 'Internet & Phone', 'Healthcare', 'Insurance',
+  'Shopping / Clothing', 'Entertainment', 'Education', 'Travel',
+  'Gym & Fitness', 'Personal Care', 'Subscriptions', 'Remittance',
+  'Savings / Investments', 'Gifts & Donations', 'Other',
 ];
 
 export const COUNTRIES = [
@@ -109,22 +92,26 @@ export const COUNTRIES = [
 ];
 
 export const INCOME_SOURCES = [
-  'Salary (full-time)',
-  'Freelance / Contract',
-  'Business Income',
-  'Investments / Dividends',
-  'Rental Income',
-  'Government Benefits',
-  'Gig Work (Uber, DoorDash, etc.)',
-  'Side Project / Online Income',
-  'Other',
+  'Salary (full-time)', 'Freelance / Contract', 'Business Income',
+  'Investments / Dividends', 'Rental Income', 'Government Benefits',
+  'Gig Work (Uber, DoorDash, etc.)', 'Side Project / Online Income', 'Other',
 ];
 
 export const QUICK_DEFAULTS = {
-  person1: { name: 'Partner 1', bank: 'Main Bank', balance: 0 },
-  person2: { name: 'Partner 2', bank: 'Main Bank', balance: 0 },
-  country: 'US',
+  people: [
+    {
+      id: 'p1',
+      name: 'Partner 1',
+      accounts: [{ id: 'a1', name: 'Main Bank', balance: 0 }],
+    },
+    {
+      id: 'p2',
+      name: 'Partner 2',
+      accounts: [{ id: 'a2', name: 'Main Bank', balance: 0 }],
+    },
+  ],
   currency: 'USD',
+  country: 'US',
   dateFormat: 'MM/DD/YYYY',
   lifestyle: 'Moderate',
   dashboardLayout: 'Simple',
@@ -132,3 +119,242 @@ export const QUICK_DEFAULTS = {
   expenseCategories: [...DEFAULT_EXPENSE_CATS],
   incomeSources: ['Salary (full-time)'],
 };
+
+// ─── Natural Language Parser ───────────────────────────────────────────────
+
+const CATEGORY_KEYWORDS = {
+  // Expenses
+  'Groceries': [
+    'grocery', 'groceries', 'supermarket', 'walmart', 'costco', 'whole foods',
+    'trader joe', 'aldi', 'woolworths', 'coles', 'iga', 'tesco', 'asda', 'lidl',
+    'dmart', 'reliance fresh', 'big bazaar', 'vegetables', 'fruits', 'chicken',
+    'spices', 'eggs', 'milk', 'bread', 'rice', 'dal', 'meat', 'fish', 'produce',
+  ],
+  'Dining Out': [
+    'restaurant', 'cafe', 'coffee', 'starbucks', 'mcdonalds', 'kfc', 'dominos',
+    'pizza hut', 'subway', 'burger', 'sushi', 'dining', 'dinner out', 'lunch out',
+    'brunch', 'takeaway', 'takeout', 'uber eats', 'doordash', 'zomato', 'swiggy',
+    'grubhub', 'dine', 'ate out', 'food delivery', 'dessert', 'bakery',
+  ],
+  'Transport / Fuel': [
+    'fuel', 'petrol', 'gas station', 'shell', 'bp', 'uber', 'lyft', 'ola', 'taxi',
+    'cab', 'bus ticket', 'train ticket', 'metro', 'toll', 'parking', 'transport',
+    'commute', 'car service', 'rapido',
+  ],
+  'Housing / Rent': [
+    'rent', 'mortgage', 'landlord', 'lease', 'apartment', 'house payment',
+  ],
+  'Utilities': [
+    'electricity', 'power bill', 'water bill', 'gas bill', 'utility', 'utilities',
+    'agl', 'origin energy', 'ausnet',
+  ],
+  'Internet & Phone': [
+    'internet', 'wifi', 'broadband', 'mobile plan', 'phone bill', 'optus',
+    'telstra', 'vodafone', 'jio', 'airtel', 'bsnl', 'prepaid recharge', 'data plan',
+  ],
+  'Healthcare': [
+    'doctor', 'hospital', 'medicine', 'pharmacy', 'medical', 'health', 'dental',
+    'dentist', 'clinic', 'prescription', 'chemist', 'bulk bill', 'specialist',
+  ],
+  'Insurance': [
+    'insurance', 'policy premium', 'car insurance', 'health insurance',
+    'life insurance', 'home insurance',
+  ],
+  'Shopping / Clothing': [
+    'shopping', 'clothes', 'clothing', 'shoes', 'amazon', 'flipkart', 'zara',
+    'h&m', 'uniqlo', 'dress', 'shirt', 'pants', 'jacket', 'online shopping',
+  ],
+  'Entertainment': [
+    'movie', 'cinema', 'netflix', 'spotify', 'disney', 'hulu', 'prime video',
+    'gaming', 'game', 'concert', 'event', 'ticket', 'play', 'show',
+  ],
+  'Education': [
+    'school', 'college', 'university', 'course', 'tuition', 'udemy', 'coursera',
+    'books', 'training', 'workshop', 'coaching', 'fees',
+  ],
+  'Travel': [
+    'flight', 'hotel', 'airbnb', 'holiday', 'vacation', 'trip', 'travel',
+    'booking.com', 'expedia', 'visa fee', 'passport',
+  ],
+  'Gym & Fitness': [
+    'gym', 'fitness', 'yoga', 'workout', 'gym membership', 'pilates', 'crossfit',
+  ],
+  'Personal Care': [
+    'haircut', 'salon', 'spa', 'beauty', 'grooming', 'barber', 'wax',
+  ],
+  'Subscriptions': [
+    'subscription', 'monthly plan', 'annual plan', 'icloud', 'google one',
+    'adobe', 'microsoft 365',
+  ],
+  'Remittance': [
+    'remit', 'send money', 'sent to india', 'sent to family', 'western union',
+    'wise', 'remitly', 'transferwise', 'sending home', 'family support',
+  ],
+  'Gifts & Donations': [
+    'gift', 'donation', 'charity', 'birthday gift', 'present', 'ngo',
+  ],
+  // Income
+  'Salary': [
+    'salary', 'paycheck', 'payday', 'wage', 'monthly pay', 'fortnightly pay',
+    'weekly pay', 'got paid', 'employer payment', 'job income',
+  ],
+  'Freelance': [
+    'freelance', 'contract payment', 'client paid', 'invoice paid',
+    'project payment', 'consulting fee', 'freelancer income',
+  ],
+  'Business Income': [
+    'business income', 'sales revenue', 'sold product', 'customer payment',
+    'business earnings', 'snack sales', 'sold items',
+  ],
+  'Investments': [
+    'dividend', 'interest earned', 'investment return', 'capital gain',
+    'stock sale', 'mutual fund', 'shares',
+  ],
+  'Rental Income': [
+    'rent received', 'rental income', 'tenant paid', 'property income',
+  ],
+  'Government Benefits': [
+    'centrelink', 'welfare', 'benefit', 'pension', 'government payment',
+    'allowance', 'jobseeker', 'family payment',
+  ],
+  'Tax Refund': [
+    'tax refund', 'ato refund', 'irs refund', 'tax return', 'got tax back',
+  ],
+  'Gift / Inheritance': [
+    'gift received', 'birthday money', 'inheritance', 'received gift',
+    'family gave', 'parents gave',
+  ],
+  'Other Income': [
+    'cashback', 'reimbursement', 'refund received', 'bonus', 'overtime',
+    'allowance received',
+  ],
+};
+
+function detectType(lower) {
+  const incomeSignals = [
+    'received', 'earned', 'salary', 'income', 'got paid', 'payment received',
+    'tax refund', 'dividend', 'interest earned', 'bonus', 'reimbursed',
+    'refund received', 'credited', 'deposited', 'got salary', 'my salary',
+    'rent received', 'sold', 'cashback', 'got money',
+  ];
+  const expenseSignals = [
+    'paid', 'bought', 'spent', 'cost', 'bill', 'rent', 'subscription',
+    'fee', 'purchased', 'ordered', 'charged', 'sent', 'send', 'paying',
+    'spending', 'transfer out', 'withdrew',
+  ];
+
+  const iScore = incomeSignals.filter((k) => lower.includes(k)).length;
+  const eScore = expenseSignals.filter((k) => lower.includes(k)).length;
+  return iScore > eScore ? 'income' : 'expense';
+}
+
+function extractAmount(text) {
+  // Match $X, X$, X dollars, just a plain number
+  const patterns = [
+    /\$\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/,
+    /(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*\$?(?=\s|$)/,
+    /(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:dollars?|usd|aud|inr|gbp|eur|cad)/i,
+    /rs\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/i, // Indian Rs. format
+    /₹\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)/,
+  ];
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const n = parseFloat(m[1].replace(/,/g, ''));
+      if (n > 0) return n;
+    }
+  }
+  return null;
+}
+
+function extractDate(lower) {
+  const today = new Date();
+  if (lower.includes('yesterday')) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1);
+    return toISODate(d);
+  }
+  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  for (let i = 0; i < dayNames.length; i++) {
+    if (lower.includes(`last ${dayNames[i]}`)) {
+      const d = new Date(today);
+      const diff = ((today.getDay() - i) + 7) % 7 || 7;
+      d.setDate(d.getDate() - diff);
+      return toISODate(d);
+    }
+  }
+  if (lower.includes('last week')) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 7);
+    return toISODate(d);
+  }
+  if (lower.includes('last month')) {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() - 1);
+    return toISODate(d);
+  }
+  // Try to match a date pattern in text
+  const isoM = lower.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (isoM) return `${isoM[1]}-${isoM[2].padStart(2,'0')}-${isoM[3].padStart(2,'0')}`;
+  const shortM = lower.match(/(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?/);
+  if (shortM) {
+    const yr = shortM[3]
+      ? (shortM[3].length === 2 ? `20${shortM[3]}` : shortM[3])
+      : today.getFullYear();
+    return `${yr}-${shortM[1].padStart(2,'0')}-${shortM[2].padStart(2,'0')}`;
+  }
+  return toISODate(today);
+}
+
+function matchCategory(lower, categories) {
+  let best = null;
+  let bestScore = 0;
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (!categories.includes(cat)) continue;
+    const score = keywords.filter((k) => lower.includes(k)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+  return best || categories[0] || '';
+}
+
+/**
+ * Parse a natural-language transaction statement into structured fields.
+ * Returns a partial transaction object; caller should let user confirm/edit.
+ */
+export function parseNLStatement(text, setup) {
+  if (!text.trim() || !setup) return null;
+  const lower = text.toLowerCase();
+
+  const type = detectType(lower);
+  const amount = extractAmount(text);
+  const date = extractDate(lower);
+  const categories = type === 'income' ? setup.incomeCategories : setup.expenseCategories;
+  const category = matchCategory(lower, categories);
+
+  // Match person from setup people list
+  let personName = setup.people?.[0]?.name || '';
+  let accountName = setup.people?.[0]?.accounts?.[0]?.name || '';
+  for (const person of setup.people || []) {
+    if (lower.includes(person.name.toLowerCase())) {
+      personName = person.name;
+      accountName = person.accounts?.[0]?.name || '';
+      break;
+    }
+    // Also match account names
+    for (const acc of person.accounts || []) {
+      if (lower.includes(acc.name.toLowerCase())) {
+        personName = person.name;
+        accountName = acc.name;
+        break;
+      }
+    }
+  }
+
+  // Build a clean notes string from original text (trimmed)
+  const notes = text.trim();
+
+  return { type, amount, date, category, personName, accountName, notes };
+}
