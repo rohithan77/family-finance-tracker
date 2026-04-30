@@ -11,14 +11,27 @@ export function setScriptUrl(url) {
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 
+async function parseResponse(resp) {
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  try {
+    const data = JSON.parse(text);
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (parseErr) {
+    const trimmed = text.trim();
+    if (trimmed === 'Ready' || trimmed === '') {
+      throw new Error('Script is warming up — click "Test & Connect" again in a moment.');
+    }
+    throw new Error(`Script returned unexpected response: "${trimmed.slice(0, 60)}"`);
+  }
+}
+
 async function apiGet(action, params = {}) {
   if (!SCRIPT_URL) throw new Error('no_script_url');
   const qs = new URLSearchParams({ action, ...params }).toString();
-  const resp = await fetch(`${SCRIPT_URL}?${qs}`);
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error);
-  return data;
+  const resp = await fetch(`${SCRIPT_URL}?${qs}`, { redirect: 'follow' });
+  return parseResponse(resp);
 }
 
 async function apiPost(action, body) {
@@ -28,11 +41,9 @@ async function apiPost(action, body) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(body),
+    redirect: 'follow',
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error);
-  return data;
+  return parseResponse(resp);
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

@@ -82,7 +82,11 @@ export default function SheetConnect({ onConnect }) {
       onConnect(trimmed);
     } catch (e) {
       setScriptUrl('');
-      setError('Could not connect. Check the URL and make sure you deployed with "Anyone" access. ' + e.message);
+      const msg = e.message || '';
+      setError(msg.includes('warming up')
+        ? msg
+        : `Could not connect — check the URL and make sure "Who has access" is set to Anyone. (${msg})`
+      );
     } finally {
       setTesting(false);
     }
