@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getTransactions, addTransaction, deleteTransaction } from '../lib/storage';
 import {
-  formatCurrency,
-  formatDate,
-  generateId,
-  filterByPeriod,
-  getGreeting,
-  parseNLStatement,
+  formatCurrency, formatDate, generateId,
+  filterByPeriod, getGreeting, parseNLStatement, CATEGORY_EMOJIS,
 } from '../lib/utils';
 
-// ── NL Input + Preview ──────────────────────────────────────────────────────
+// ── NL Input ────────────────────────────────────────────────────────────────
 function NLInput({ setup, onSave, onToast }) {
   const [text, setText] = useState('');
-  const [preview, setPreview] = useState(null); // parsed result
+  const [preview, setPreview] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const textareaRef = useRef(null);
 
-  const allPeople = setup.people || [];
   const allAccounts = (personName) => {
-    const p = allPeople.find((p) => p.name === personName);
+    const p = (setup.people || []).find((p) => p.name === personName);
     return p?.accounts || [];
   };
 
@@ -42,12 +36,10 @@ function NLInput({ setup, onSave, onToast }) {
     setEditForm((f) => {
       const next = { ...f, [k]: v };
       if (k === 'type') {
-        const cats = v === 'income' ? setup.incomeCategories : setup.expenseCategories;
-        next.category = cats?.[0] || '';
+        next.category = (v === 'income' ? setup.incomeCategories : setup.expenseCategories)?.[0] || '';
       }
       if (k === 'personName') {
-        const accs = allAccounts(v);
-        next.accountName = accs[0]?.name || '';
+        next.accountName = allAccounts(v)[0]?.name || '';
       }
       return next;
     });
@@ -69,26 +61,19 @@ function NLInput({ setup, onSave, onToast }) {
     setText('');
     setPreview(null);
     setEditForm(null);
-  };
-
-  const handleDiscard = () => {
-    setPreview(null);
-    setEditForm(null);
+    textareaRef.current?.focus();
   };
 
   const handleKeyDown = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleParse();
-    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); handleParse(); }
   };
 
   const EXAMPLES = [
     'paid $45 for groceries yesterday',
     'got salary $3500 today',
-    'electricity bill $120 this week',
+    'electricity bill $120',
     'sent $300 to family last Monday',
-    'Netflix subscription $15.99',
+    'Netflix $15.99',
   ];
 
   return (
@@ -100,11 +85,7 @@ function NLInput({ setup, onSave, onToast }) {
         </div>
         <div className="nl-examples">
           {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              className="nl-example"
-              onClick={() => { setText(ex); textareaRef.current?.focus(); }}
-            >
+            <button key={ex} className="nl-example" onClick={() => { setText(ex); textareaRef.current?.focus(); }}>
               {ex}
             </button>
           ))}
@@ -119,119 +100,68 @@ function NLInput({ setup, onSave, onToast }) {
             placeholder="e.g. paid $89 at Woolworths yesterday · got salary $3500 today · sent $200 to India"
             rows={2}
           />
-          <button
-            className="nl-parse-btn"
-            onClick={handleParse}
-            disabled={!text.trim()}
-          >
+          <button className="nl-parse-btn" onClick={handleParse} disabled={!text.trim()}>
             Parse ↗
           </button>
         </div>
       </div>
 
-      {/* Preview / Edit form */}
       {preview && editForm && (
         <div className="nl-preview">
           <div className="nl-preview-header">
             <span className="nl-preview-label">✦ Review & confirm — edit anything below</span>
           </div>
           <div className="nl-preview-grid">
-            {/* Type toggle */}
             <div className="nl-field">
               <label>Type</label>
               <div className="type-toggle">
-                <button
-                  type="button"
-                  className={editForm.type === 'income' ? 'active income' : ''}
-                  onClick={() => updEdit('type', 'income')}
-                >Income</button>
-                <button
-                  type="button"
-                  className={editForm.type === 'expense' ? 'active expense' : ''}
-                  onClick={() => updEdit('type', 'expense')}
-                >Expense</button>
+                <button type="button" className={editForm.type === 'income' ? 'active income' : ''} onClick={() => updEdit('type', 'income')}>Income</button>
+                <button type="button" className={editForm.type === 'expense' ? 'active expense' : ''} onClick={() => updEdit('type', 'expense')}>Expense</button>
               </div>
             </div>
-
-            {/* Category */}
             <div className="nl-field">
               <label>Category</label>
               <select value={editForm.category} onChange={(e) => updEdit('category', e.target.value)}>
-                {(editForm.type === 'income'
-                  ? setup.incomeCategories
-                  : setup.expenseCategories
-                )?.map((c) => (
+                {(editForm.type === 'income' ? setup.incomeCategories : setup.expenseCategories)?.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
-
-            {/* Amount */}
             <div className="nl-field">
               <label>Amount</label>
               <input
-                type="number"
-                value={editForm.amount}
-                onChange={(e) => updEdit('amount', e.target.value)}
-                placeholder="0.00"
-                min="0.01"
-                step="0.01"
+                type="number" value={editForm.amount} onChange={(e) => updEdit('amount', e.target.value)}
+                placeholder="0.00" min="0.01" step="0.01"
                 className={!editForm.amount ? 'missing' : ''}
               />
             </div>
-
-            {/* Person */}
             <div className="nl-field">
               <label>Person</label>
               <select value={editForm.personName} onChange={(e) => updEdit('personName', e.target.value)}>
-                {(setup.people || []).map((p) => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
-                ))}
+                {(setup.people || []).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
                 <option value="Both">Both</option>
               </select>
             </div>
-
-            {/* Account */}
             {allAccounts(editForm.personName).length > 0 && (
               <div className="nl-field">
                 <label>Account</label>
                 <select value={editForm.accountName} onChange={(e) => updEdit('accountName', e.target.value)}>
-                  {allAccounts(editForm.personName).map((a) => (
-                    <option key={a.id} value={a.name}>{a.name}</option>
-                  ))}
+                  {allAccounts(editForm.personName).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
                 </select>
               </div>
             )}
-
-            {/* Date */}
             <div className="nl-field">
               <label>Date</label>
-              <input
-                type="date"
-                value={editForm.date}
-                onChange={(e) => updEdit('date', e.target.value)}
-              />
+              <input type="date" value={editForm.date} onChange={(e) => updEdit('date', e.target.value)} />
             </div>
-
-            {/* Notes */}
             <div className="nl-field nl-field-wide">
               <label>Notes</label>
-              <input
-                type="text"
-                value={editForm.notes}
-                onChange={(e) => updEdit('notes', e.target.value)}
-                placeholder="Additional notes..."
-              />
+              <input type="text" value={editForm.notes} onChange={(e) => updEdit('notes', e.target.value)} placeholder="Additional notes..." />
             </div>
           </div>
-
           <div className="nl-preview-actions">
-            <button className="nl-save-btn" onClick={handleSave}>
-              ✓ Save Transaction
-            </button>
-            <button className="nl-discard-btn" onClick={handleDiscard}>
-              Discard
-            </button>
+            <button className="nl-save-btn" onClick={handleSave}>✓ Save Transaction</button>
+            <button className="nl-discard-btn" onClick={() => { setPreview(null); setEditForm(null); }}>Discard</button>
           </div>
         </div>
       )}
@@ -239,15 +169,15 @@ function NLInput({ setup, onSave, onToast }) {
   );
 }
 
-// ── Dashboard ───────────────────────────────────────────────────────────────
-export default function Dashboard({ setup, onOpenSettings }) {
-  const [transactions, setTransactions] = useState([]);
+// ── Dashboard ────────────────────────────────────────────────────────────────
+export default function Dashboard({
+  setup, transactions, onSave, onDelete, onSync, syncing, syncError, onOpenSettings,
+}) {
   const [period, setPeriod] = useState('month');
   const [filters, setFilters] = useState({ person: '', type: '', category: '' });
   const [deleteId, setDeleteId] = useState(null);
   const [toast, setToast] = useState('');
 
-  useEffect(() => { setTransactions(getTransactions()); }, []);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(''), 2500);
@@ -256,28 +186,15 @@ export default function Dashboard({ setup, onOpenSettings }) {
 
   const showToast = (msg) => setToast(msg);
 
-  const handleSave = (tx) => {
-    const updated = addTransaction(tx);
-    setTransactions(updated);
-    showToast('Transaction saved!');
-  };
-
-  const handleDelete = (id) => {
-    const updated = deleteTransaction(id);
-    setTransactions(updated);
-    setDeleteId(null);
-    showToast('Deleted');
-  };
+  const handleSave = (tx) => { onSave(tx); showToast('Transaction saved!'); };
+  const handleDelete = (id) => { onDelete(id); setDeleteId(null); showToast('Deleted'); };
 
   const currency = setup.currency || 'USD';
   const fmt = (n) => formatCurrency(n, currency);
   const fmtDate = (d) => formatDate(d, setup.dateFormat);
   const people = (setup.people || []).map((p) => p.name);
 
-  // Period-filtered
   const periodTxns = filterByPeriod(transactions, period);
-
-  // Column-filtered
   const filtered = periodTxns.filter(
     (t) =>
       (!filters.person || t.personName === filters.person) &&
@@ -289,9 +206,7 @@ export default function Dashboard({ setup, onOpenSettings }) {
   const expense = periodTxns.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const balance = income - expense;
 
-  // Category breakdown (Detailed mode)
-  const expByCat = {};
-  const incByCat = {};
+  const expByCat = {}, incByCat = {};
   periodTxns.forEach((t) => {
     if (t.type === 'expense') expByCat[t.category] = (expByCat[t.category] || 0) + t.amount;
     else incByCat[t.category] = (incByCat[t.category] || 0) + t.amount;
@@ -302,29 +217,34 @@ export default function Dashboard({ setup, onOpenSettings }) {
   const maxInc = topInc[0]?.[1] || 1;
 
   const isDetailed = setup.dashboardLayout === 'Detailed';
-  const allCategories = [...(setup.incomeCategories || []), ...(setup.expenseCategories || [])];
+  const allCategories = [...new Set([...(setup.incomeCategories || []), ...(setup.expenseCategories || [])])];
 
   return (
     <div className="app-layout">
-      {/* Header */}
       <header className="app-header">
-        <div className="header-logo">💰 <span>FamilyFinance</span></div>
+        <div className="header-logo">💰 <span>Family Finance</span></div>
         <div className="header-right">
-          <button className="btn-icon" onClick={onOpenSettings}>⚙️ Settings</button>
+          <button className={`sync-btn ${syncing ? 'syncing' : ''}`} onClick={onSync} title="Sync with Google Sheets">
+            {syncing ? <><div className="spinner" /> Syncing…</> : '⟳ Sync'}
+          </button>
+          <button className="btn-settings" onClick={onOpenSettings}>⚙ Settings</button>
         </div>
       </header>
 
+      {syncError && (
+        <div className="sync-error-banner" onClick={() => onSync()}>
+          ⚠ {syncError} — tap to retry
+        </div>
+      )}
+
       <main className="app-main">
-        {/* Greeting */}
         <div className="dash-greeting">
           <h1>{getGreeting()}, {setup.people?.[0]?.name || 'there'}!</h1>
           <p>Just describe what happened — I'll figure out the rest.</p>
         </div>
 
-        {/* NL Input */}
         <NLInput setup={setup} onSave={handleSave} onToast={showToast} />
 
-        {/* Period tabs */}
         <div className="period-tabs" style={{ marginTop: 24 }}>
           {[
             { key: 'month', label: 'This Month' },
@@ -332,17 +252,12 @@ export default function Dashboard({ setup, onOpenSettings }) {
             { key: 'year', label: 'This Year' },
             { key: 'all', label: 'All Time' },
           ].map((p) => (
-            <button
-              key={p.key}
-              className={`period-tab ${period === p.key ? 'active' : ''}`}
-              onClick={() => setPeriod(p.key)}
-            >
+            <button key={p.key} className={`period-tab ${period === p.key ? 'active' : ''}`} onClick={() => setPeriod(p.key)}>
               {p.label}
             </button>
           ))}
         </div>
 
-        {/* Summary cards */}
         <div className="summary-cards">
           <div className="summary-card income-card">
             <div className="card-label">Income</div>
@@ -361,7 +276,6 @@ export default function Dashboard({ setup, onOpenSettings }) {
           </div>
         </div>
 
-        {/* Detailed breakdown */}
         {isDetailed && (
           <div className="breakdown-grid">
             <div className="breakdown-card">
@@ -369,7 +283,7 @@ export default function Dashboard({ setup, onOpenSettings }) {
               {topExp.length === 0 ? <p className="empty-hint">No expenses this period</p> : topExp.map(([cat, val]) => (
                 <div key={cat} className="breakdown-row">
                   <div className="breakdown-info">
-                    <span className="breakdown-cat">{cat}</span>
+                    <span className="breakdown-cat">{CATEGORY_EMOJIS[cat] || '📌'} {cat}</span>
                     <span className="breakdown-val expense">{fmt(val)}</span>
                   </div>
                   <div className="breakdown-bar-bg">
@@ -383,7 +297,7 @@ export default function Dashboard({ setup, onOpenSettings }) {
               {topInc.length === 0 ? <p className="empty-hint">No income this period</p> : topInc.map(([cat, val]) => (
                 <div key={cat} className="breakdown-row">
                   <div className="breakdown-info">
-                    <span className="breakdown-cat">{cat}</span>
+                    <span className="breakdown-cat">{CATEGORY_EMOJIS[cat] || '💵'} {cat}</span>
                     <span className="breakdown-val income">{fmt(val)}</span>
                   </div>
                   <div className="breakdown-bar-bg">
@@ -411,7 +325,6 @@ export default function Dashboard({ setup, onOpenSettings }) {
           </div>
         )}
 
-        {/* Filters */}
         <div className="filter-bar">
           <span className="filter-label">Filter:</span>
           <select value={filters.person} onChange={(e) => setFilters((f) => ({ ...f, person: e.target.value }))}>
@@ -429,20 +342,15 @@ export default function Dashboard({ setup, onOpenSettings }) {
             {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           {(filters.person || filters.type || filters.category) && (
-            <button className="btn-clear" onClick={() => setFilters({ person: '', type: '', category: '' })}>
-              Clear ✕
-            </button>
+            <button className="btn-clear" onClick={() => setFilters({ person: '', type: '', category: '' })}>Clear ✕</button>
           )}
         </div>
 
-        {/* Transaction list */}
         <div className="txn-list">
           {filtered.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">💬</div>
-              <div className="empty-title">
-                {transactions.length === 0 ? 'No transactions yet' : 'No results'}
-              </div>
+              <div className="empty-title">{transactions.length === 0 ? 'No transactions yet' : 'No results'}</div>
               <div className="empty-sub">
                 {transactions.length === 0
                   ? 'Describe a transaction above — e.g. "paid $45 for groceries"'
@@ -452,15 +360,13 @@ export default function Dashboard({ setup, onOpenSettings }) {
           ) : (
             filtered.map((tx) => (
               <div key={tx.id} className={`txn-item ${tx.type}`}>
-                <div className={`txn-dot ${tx.type}`} />
+                <div className="txn-emoji">{CATEGORY_EMOJIS[tx.category] || (tx.type === 'income' ? '💵' : '📌')}</div>
                 <div className="txn-info">
                   <div className="txn-cat">{tx.category}</div>
                   <div className="txn-meta">
                     {fmtDate(tx.date)} · {tx.personName}
                     {tx.accountName && <span> · {tx.accountName}</span>}
-                    {tx.notes && tx.notes !== tx.rawInput && (
-                      <span className="txn-note"> · {tx.notes}</span>
-                    )}
+                    {tx.notes && tx.notes !== tx.rawInput && <span className="txn-note"> · {tx.notes}</span>}
                   </div>
                 </div>
                 <div className="txn-right">

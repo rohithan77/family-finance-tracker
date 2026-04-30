@@ -120,6 +120,38 @@ export const QUICK_DEFAULTS = {
   incomeSources: ['Salary (full-time)'],
 };
 
+// ─── Category emojis ───────────────────────────────────────────────────────
+export const CATEGORY_EMOJIS = {
+  'Groceries': '🛒',
+  'Dining Out': '🍽️',
+  'Transport / Fuel': '🚗',
+  'Housing / Rent': '🏠',
+  'Utilities': '💡',
+  'Internet & Phone': '📱',
+  'Healthcare': '🏥',
+  'Insurance': '🛡️',
+  'Shopping / Clothing': '👗',
+  'Entertainment': '🎬',
+  'Education': '📚',
+  'Travel': '✈️',
+  'Gym & Fitness': '💪',
+  'Personal Care': '💆',
+  'Subscriptions': '📺',
+  'Remittance': '💸',
+  'Savings / Investments': '📈',
+  'Gifts & Donations': '🎁',
+  'Other': '📌',
+  'Salary': '💼',
+  'Freelance': '💻',
+  'Business Income': '🏢',
+  'Investments': '📊',
+  'Rental Income': '🏘️',
+  'Government Benefits': '🏛️',
+  'Tax Refund': '💰',
+  'Gift / Inheritance': '🎁',
+  'Other Income': '💵',
+};
+
 // ─── Natural Language Parser ───────────────────────────────────────────────
 
 const CATEGORY_KEYWORDS = {

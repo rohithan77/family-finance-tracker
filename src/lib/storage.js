@@ -1,5 +1,8 @@
-const SETUP_KEY = 'ff_setup_v2';
-const TXN_KEY = 'ff_transactions_v2';
+// Local storage keys
+const SHEET_KEY = 'ff_sheet_id';
+const PIN_KEY   = 'ff_pin_hash';
+const SETUP_KEY = 'ff_setup_v3';
+const TXN_KEY   = 'ff_txns_v3';
 
 const parse = (key, fallback) => {
   try {
@@ -10,29 +13,30 @@ const parse = (key, fallback) => {
   }
 };
 
-export const getSetup = () => parse(SETUP_KEY, null);
+// ── Sheet ID ────────────────────────────────────────────────────────────────
+export const getSheetId = () => localStorage.getItem(SHEET_KEY) || null;
+export const saveSheetId = (id) => localStorage.setItem(SHEET_KEY, id);
+export const clearSheetId = () => localStorage.removeItem(SHEET_KEY);
 
-export const saveSetup = (setup) =>
-  localStorage.setItem(SETUP_KEY, JSON.stringify(setup));
+// ── PIN ─────────────────────────────────────────────────────────────────────
+export const getPinHash = () => localStorage.getItem(PIN_KEY) || null;
+export const savePinHash = (hash) => localStorage.setItem(PIN_KEY, hash);
+export const clearPinHash = () => localStorage.removeItem(PIN_KEY);
 
-export const getTransactions = () => parse(TXN_KEY, []);
+export async function hashPin(pin) {
+  const data = new TextEncoder().encode(pin);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-export const saveTransactions = (txns) =>
-  localStorage.setItem(TXN_KEY, JSON.stringify(txns));
+// ── Local cache (fast load while syncing) ───────────────────────────────────
+export const getCachedSetup = () => parse(SETUP_KEY, null);
+export const cacheSetup = (setup) => localStorage.setItem(SETUP_KEY, JSON.stringify(setup));
 
-export const addTransaction = (tx) => {
-  const txns = [tx, ...getTransactions()];
-  saveTransactions(txns);
-  return txns;
-};
+export const getCachedTransactions = () => parse(TXN_KEY, []);
+export const cacheTransactions = (txns) => localStorage.setItem(TXN_KEY, JSON.stringify(txns));
 
-export const deleteTransaction = (id) => {
-  const txns = getTransactions().filter((t) => t.id !== id);
-  saveTransactions(txns);
-  return txns;
-};
-
+// ── Danger zone ─────────────────────────────────────────────────────────────
 export const clearAll = () => {
-  localStorage.removeItem(SETUP_KEY);
-  localStorage.removeItem(TXN_KEY);
+  [SHEET_KEY, PIN_KEY, SETUP_KEY, TXN_KEY].forEach(k => localStorage.removeItem(k));
 };
