@@ -290,7 +290,7 @@ export default function Dashboard({
       <main className="app-main">
         <div className="dash-greeting">
           <h1>{getGreeting()}, {setup.people?.[0]?.name || 'there'}!</h1>
-          <p>Just describe what happened — I'll figure out the rest.</p>
+          <p>Add a transaction <em>or</em> ask a question — e.g. "paid $45 groceries" or "total expenses last month".</p>
         </div>
 
         <NLInput setup={setup} transactions={transactions} onSave={handleSave} onToast={showToast} />

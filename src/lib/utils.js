@@ -519,8 +519,8 @@ export function parseNLQuery(text, setup, transactions) {
 
   // Type filter
   let typeFilter = null;
-  if (/\b(expense|spent|spending|paid|bought|cost)\b/.test(lower)) typeFilter = 'expense';
-  if (/\b(income|earned|received|salary|earning)\b/.test(lower)) typeFilter = 'income';
+  if (/\b(expenses?|spent|spending|paid|bought|cost)\b/.test(lower)) typeFilter = 'expense';
+  if (/\b(income|earned|received|salary|earnings?)\b/.test(lower)) typeFilter = 'income';
 
   // Category filter — try exact match then keyword match
   const allCats = [...(setup.incomeCategories || []), ...(setup.expenseCategories || [])];
