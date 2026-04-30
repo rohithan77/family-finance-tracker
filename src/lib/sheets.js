@@ -26,9 +26,11 @@ export async function initSheets() {
     return;
   }
   await waitFor(() => typeof window.google !== 'undefined');
+  const redirect_uri = window.location.origin + '/';
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
+    redirect_uri,
     callback: () => {},
   });
 }
