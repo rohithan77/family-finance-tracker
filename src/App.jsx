@@ -54,19 +54,26 @@ export default function App() {
     setSyncing(true);
     setSyncError('');
     try {
-      const [remoteSetup, remoteTxns] = await Promise.all([
+      // allSettled so a broken setup doesn't block transaction loading
+      const [setupRes, txnRes] = await Promise.allSettled([
         fetchSetup(),
         fetchTransactions(),
       ]);
-      if (remoteSetup) {
-        setSetup(remoteSetup);
-        cacheSetup(remoteSetup);
+      if (setupRes.status === 'fulfilled' && setupRes.value) {
+        setSetup(setupRes.value);
+        cacheSetup(setupRes.value);
       }
-      const sorted = [...(remoteTxns || [])].sort(
-        (a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
-      );
-      setTransactions(sorted);
-      cacheTransactions(sorted);
+      if (txnRes.status === 'fulfilled') {
+        const sorted = [...(txnRes.value || [])].sort(
+          (a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+        );
+        setTransactions(sorted);
+        cacheTransactions(sorted);
+      }
+      const errs = [setupRes, txnRes]
+        .filter(r => r.status === 'rejected')
+        .map(r => r.reason?.message || 'error');
+      if (errs.length) setSyncError(errs.join(' | '));
     } catch (e) {
       setSyncError(e.message || 'Sync failed');
     } finally {

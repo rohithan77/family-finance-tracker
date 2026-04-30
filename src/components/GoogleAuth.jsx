@@ -18,12 +18,30 @@ function doGet(e) {
       return respond({ ok: true });
     }
     if (action === 'getTransactions') {
-      const sheet = ensureSheet(ss,'Transactions');
-      const data = sheet.getDataRange().getValues();
-      if (data.length <= 1) return respond({ transactions: [] });
-      const txns = data.slice(1).filter(r => r[0]).map(r => {
-        const t = {}; HEADERS.forEach((h,i) => { t[h] = r[i]===undefined?'':r[i]; });
-        t.amount = parseFloat(t.amount)||0; return t;
+      const sheet = findDataSheet(ss);
+      if (!sheet || sheet.getLastRow() === 0) return respond({ transactions: [] });
+      const nRows = sheet.getLastRow();
+      const nCols = Math.max(sheet.getLastColumn(), HEADERS.length);
+      const data = sheet.getRange(1, 1, nRows, nCols).getValues();
+      // Detect header row: first row contains at least one of our header names
+      const firstRow = data[0].map(v => String(v).trim());
+      const hasHeader = HEADERS.some(h => firstRow.indexOf(h) >= 0);
+      const rows = hasHeader ? data.slice(1) : data;
+      // Build column index map (use positional fallback if no header)
+      const colIdx = {};
+      if (hasHeader) {
+        HEADERS.forEach(h => { const i = firstRow.indexOf(h); if (i >= 0) colIdx[h] = i; });
+      } else {
+        HEADERS.forEach((h, i) => { colIdx[h] = i; });
+      }
+      const txns = rows.filter(r => r[colIdx['id'] >= 0 ? colIdx['id'] : 0]).map((r, i) => {
+        const t = {};
+        HEADERS.forEach(h => { const idx = colIdx[h]; t[h] = (idx !== undefined && r[idx] !== undefined) ? r[idx] : ''; });
+        t.amount = parseFloat(t.amount) || 0;
+        if (!t.id) t.id = 'row-' + i;
+        if (!t.type) t.type = 'expense';
+        if (!t.createdAt) t.createdAt = t.date || new Date().toISOString();
+        return t;
       });
       return respond({ transactions: txns });
     }
@@ -37,12 +55,20 @@ function doGet(e) {
     if (action === 'deleteTransaction') {
       const id = e.parameter.id;
       const sheet = ensureSheet(ss,'Transactions');
+      if(sheet.getLastRow()===0) return respond({ ok: false });
       const ids = sheet.getRange(1,1,sheet.getLastRow(),1).getValues();
-      for (let i=1;i<ids.length;i++) { if(ids[i][0]===id){sheet.deleteRow(i+1);return respond({ok:true});} }
+      for (let i=1;i<ids.length;i++) { if(String(ids[i][0])===id){sheet.deleteRow(i+1);return respond({ok:true});} }
       return respond({ ok: false });
     }
     return respond({ error: 'Unknown: '+action });
   } catch(err) { return respond({ error: err.toString() }); }
+}
+function findDataSheet(ss) {
+  // Prefer 'Transactions' tab; fall back to first non-Setup sheet that has rows
+  const txn = ss.getSheetByName('Transactions');
+  if (txn && txn.getLastRow() > 0) return txn;
+  const fallback = ss.getSheets().filter(s => s.getName() !== 'Setup' && s.getLastRow() > 0);
+  return fallback.length ? fallback[0] : (txn || null);
 }
 function ensureSheet(ss,name) {
   const s=ss.getSheetByName(name); if(s) return s;
