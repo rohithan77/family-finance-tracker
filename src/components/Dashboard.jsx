@@ -569,14 +569,9 @@ export default function Dashboard({
         <button className="bnav-add" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <span>+</span>
         </button>
-        <button className={`bnav-item ${activeTab === 'budgets' ? 'active' : ''}`}
-          onClick={() => { budgetRef.current?.scrollIntoView({ behavior: 'smooth' }); setActiveTab('budgets'); }}>
-          <span className="bnav-icon">◎</span>
-          <span className="bnav-label">Budgets</span>
-        </button>
-        <button className="bnav-item" onClick={onOpenSettings}>
-          <span className="bnav-icon">⚙</span>
-          <span className="bnav-label">Settings</span>
+        <button className="bnav-item" onClick={onOpenCSV}>
+          <span className="bnav-icon">↑</span>
+          <span className="bnav-label">Upload</span>
         </button>
       </nav>
     </div>
