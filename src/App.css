@@ -676,6 +676,23 @@ a { color: var(--accent); text-decoration: none; }
 .field-error { font-size: .78rem; color: var(--red); margin-top: 4px; }
 .loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: 1rem; font-weight: 500; gap: 10px; }
 
+/* ── SheetConnect (no-OAuth setup) ───────────────────────────── */
+.connect-card { background: var(--card); border-radius: var(--radius-lg); padding: 32px 28px 28px; max-width: 620px; width: 100%; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 20px; }
+.connect-steps { display: flex; flex-direction: column; gap: 0; }
+.connect-step { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--border-2); }
+.connect-step:last-child { border-bottom: none; padding-bottom: 0; }
+.step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: white; font-size: .78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.step-body { flex: 1; min-width: 0; }
+.step-title { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.step-desc { font-size: .82rem; color: var(--text-2); line-height: 1.5; }
+.step-link { color: var(--accent); text-decoration: underline; font-weight: 600; }
+.step-list { margin: 8px 0 0 16px; padding: 0; font-size: .82rem; color: var(--text-2); line-height: 1.8; }
+.code-block-wrap { position: relative; margin-top: 10px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+.code-block { margin: 0; padding: 12px 14px; background: var(--bg); font-family: 'Menlo','Consolas','Monaco',monospace; font-size: .7rem; line-height: 1.5; color: var(--text); overflow-x: auto; max-height: 140px; overflow-y: auto; white-space: pre; }
+.copy-btn { position: absolute; top: 6px; right: 6px; padding: 4px 10px; background: var(--accent); color: white; border-radius: var(--radius-full); font-size: .75rem; font-weight: 700; z-index: 1; }
+.copy-btn:hover { opacity: .88; }
+.connect-btn { margin-top: 10px; width: 100%; }
+
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .app-main { padding: 16px 14px 40px; }

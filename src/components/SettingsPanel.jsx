@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { generateId } from '../lib/utils';
 import { getPinHash, savePinHash, clearPinHash, hashPin } from '../lib/storage';
 
-export default function SettingsPanel({ setup, sheetId, onSave, onClose, onDisconnect }) {
+export default function SettingsPanel({ setup, scriptUrl, onSave, onClose, onDisconnect }) {
   const [people, setPeople] = useState(
     () => (setup.people || []).map((p) => ({ ...p, accounts: (p.accounts || []).map((a) => ({ ...a })) }))
   );
@@ -108,8 +108,6 @@ export default function SettingsPanel({ setup, sheetId, onSave, onClose, onDisco
     }
   };
 
-  const sheetUrl = sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}` : null;
-
   return (
     <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="settings-panel">
@@ -120,20 +118,15 @@ export default function SettingsPanel({ setup, sheetId, onSave, onClose, onDisco
 
         <div className="settings-body">
 
-          {/* ── Google Sheet ── */}
+          {/* ── Script Connection ── */}
           <div className="settings-section">
-            <h3>📊 Google Sheet</h3>
+            <h3>📊 Sheet Connection</h3>
             <div className="sheet-info">
-              <div className="sheet-id-box">
-                <span className="sheet-id-label">ID:</span>
-                <span>{sheetId || '—'}</span>
+              <div className="sheet-id-box" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
+                <span className="sheet-id-label">URL:</span>
+                <span>{scriptUrl || '—'}</span>
               </div>
               <div className="sheet-actions">
-                {sheetUrl && (
-                  <a className="btn-open-sheet" href={sheetUrl} target="_blank" rel="noreferrer">
-                    Open in Sheets ↗
-                  </a>
-                )}
                 <button className="btn-disconnect" onClick={() => { if (window.confirm('Disconnect this sheet? Your local cache will be cleared.')) onDisconnect(); }}>
                   Disconnect
                 </button>

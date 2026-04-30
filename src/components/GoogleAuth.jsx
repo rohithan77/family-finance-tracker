@@ -1,164 +1,176 @@
 import React, { useState } from 'react';
-import { signIn, createFamilySheet, validateSheet } from '../lib/sheets';
+import { setScriptUrl, testConnection } from '../lib/sheets';
+import { saveScriptUrl } from '../lib/storage';
 
-const GOOGLE_SVG = (
-  <svg width="20" height="20" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-  </svg>
-);
+const APPS_SCRIPT_CODE = `const HEADERS = ['id','date','type','category','amount','personName','accountName','notes','rawInput','createdAt'];
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const action = (e.parameter.action || '').trim();
+    if (action === 'test') return respond({ ok: true, name: ss.getName() });
+    if (action === 'getSetup') {
+      const val = ensureSheet(ss,'Setup').getRange('A1').getValue();
+      return respond({ setup: val ? JSON.parse(val) : null });
+    }
+    if (action === 'getTransactions') {
+      const sheet = ensureSheet(ss,'Transactions');
+      const data = sheet.getDataRange().getValues();
+      if (data.length <= 1) return respond({ transactions: [] });
+      const txns = data.slice(1).filter(r => r[0]).map(r => {
+        const t = {}; HEADERS.forEach((h,i) => { t[h] = r[i]===undefined?'':r[i]; });
+        t.amount = parseFloat(t.amount)||0; return t;
+      });
+      return respond({ transactions: txns });
+    }
+    if (action === 'deleteTransaction') {
+      const id = e.parameter.id;
+      const sheet = ensureSheet(ss,'Transactions');
+      const ids = sheet.getRange(1,1,sheet.getLastRow(),1).getValues();
+      for (let i=1;i<ids.length;i++) { if(ids[i][0]===id){sheet.deleteRow(i+1);return respond({ok:true});} }
+      return respond({ ok: false });
+    }
+    return respond({ error: 'Unknown: '+action });
+  } catch(err) { return respond({ error: err.toString() }); }
+}
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const action = (e.parameter.action||'').trim();
+    const body = JSON.parse(e.postData.contents);
+    if (action==='saveSetup') { ensureSheet(ss,'Setup').getRange('A1').setValue(JSON.stringify(body)); return respond({ok:true}); }
+    if (action==='addTransaction') {
+      const sheet = ensureSheet(ss,'Transactions');
+      if(sheet.getLastRow()===0) sheet.appendRow(HEADERS);
+      sheet.appendRow(HEADERS.map(h=>body[h]!==undefined?String(body[h]):''));
+      return respond({ok:true});
+    }
+    return respond({ error: 'Unknown: '+action });
+  } catch(err) { return respond({ error: err.toString() }); }
+}
+function ensureSheet(ss,name) {
+  const s=ss.getSheetByName(name); if(s) return s;
+  const ns=ss.insertSheet(name); if(name==='Transactions') ns.appendRow(HEADERS); return ns;
+}
+function respond(data) { return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON); }`;
 
-export default function GoogleAuth({ onConnect }) {
-  const [phase, setPhase] = useState('sign_in'); // sign_in | choose | creating | joining | error
+export default function SheetConnect({ onConnect }) {
+  const [url, setUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [joinId, setJoinId] = useState('');
-  const [familyName, setFamilyName] = useState('');
 
-  const handleSignIn = async () => {
-    setLoading(true);
-    setError('');
+  const handleCopy = async () => {
     try {
-      await signIn();
-      setPhase('choose');
-    } catch (e) {
-      setError(e.message === 'popup_closed_by_user'
-        ? 'Sign-in was cancelled.'
-        : 'Sign-in failed. Please try again.');
-    } finally {
-      setLoading(false);
+      await navigator.clipboard.writeText(APPS_SCRIPT_CODE);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
     }
   };
 
-  const handleCreate = async () => {
-    setLoading(true);
-    setError('');
-    setPhase('creating');
-    try {
-      const sheetId = await createFamilySheet(familyName.trim() || 'My Family');
-      onConnect(sheetId, true);
-    } catch (e) {
-      setError('Could not create sheet: ' + e.message);
-      setPhase('choose');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    const id = joinId.trim();
-    if (!id) { setError('Enter a Sheet ID'); return; }
-    setLoading(true);
+  const handleConnect = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) { setError('Paste your Web App URL above'); return; }
+    setTesting(true);
     setError('');
     try {
-      // Extract sheet ID from a full URL if pasted
-      const match = id.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-      const sheetId = match ? match[1] : id;
-      const result = await validateSheet(sheetId);
-      if (!result.ok) {
-        setError(result.error === 'not_signed_in'
-          ? 'Session expired — sign in again'
-          : `Can't access that sheet: ${result.error}`);
-      } else {
-        onConnect(sheetId, false);
-      }
+      setScriptUrl(trimmed);
+      const result = await testConnection();
+      if (!result.ok) throw new Error('Script returned an unexpected response');
+      saveScriptUrl(trimmed);
+      onConnect(trimmed);
     } catch (e) {
-      setError(e.message);
+      setScriptUrl('');
+      setError('Could not connect. Check the URL and make sure you deployed with "Anyone" access. ' + e.message);
     } finally {
-      setLoading(false);
+      setTesting(false);
     }
   };
-
-  if (!process.env.REACT_APP_GOOGLE_CLIENT_ID) {
-    return (
-      <div className="auth-screen">
-        <div className="auth-card">
-          <div className="auth-logo">💰</div>
-          <h1 className="auth-title">Family Finance</h1>
-          <div className="auth-setup-notice">
-            <p><strong>Setup required:</strong> Set <code>REACT_APP_GOOGLE_CLIENT_ID</code> in your <code>.env</code> file.</p>
-            <p>See <code>.env.example</code> for instructions.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="auth-screen">
-      <div className="auth-card">
+      <div className="connect-card">
         <div className="auth-logo">💰</div>
         <h1 className="auth-title">Family Finance</h1>
-        <p className="auth-tagline">Track together. Sync via Google Sheets.<br />Your data, your sheet, your control.</p>
+        <p className="auth-tagline">Your data lives in your own Google Sheet — no logins, no verification.</p>
 
-        {phase === 'sign_in' && (
-          <>
-            <button className="google-btn" onClick={handleSignIn} disabled={loading}>
-              {GOOGLE_SVG}
-              {loading ? 'Signing in…' : 'Sign in with Google'}
-            </button>
-            <p className="auth-privacy">🔒 We only access the specific sheet you connect — nothing else.</p>
-          </>
-        )}
-
-        {(phase === 'choose' || phase === 'creating' || phase === 'joining') && (
-          <div className="auth-choose">
-            <div className="auth-paths">
-              <div className="auth-path">
-                <div className="auth-path-icon">✨</div>
-                <div className="auth-path-label">Create new sheet</div>
-                <input
-                  className="auth-input"
-                  value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  placeholder="Your family name (optional)"
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                />
-                <button
-                  className="btn-primary"
-                  onClick={handleCreate}
-                  disabled={loading}
-                >
-                  {loading && phase === 'creating' ? 'Creating…' : 'Create & Start'}
-                </button>
+        <div className="connect-steps">
+          {/* Step 1 */}
+          <div className="connect-step">
+            <div className="step-num">1</div>
+            <div className="step-body">
+              <div className="step-title">Create a Google Sheet</div>
+              <div className="step-desc">
+                Open{' '}
+                <a className="step-link" href="https://sheets.new" target="_blank" rel="noreferrer">
+                  sheets.new
+                </a>{' '}
+                to create a new sheet. Give it any name you like.
               </div>
+            </div>
+          </div>
 
-              <div className="auth-divider-v">or</div>
-
-              <div className="auth-path">
-                <div className="auth-path-icon">🔗</div>
-                <div className="auth-path-label">Connect existing sheet</div>
-                <input
-                  className="auth-input"
-                  value={joinId}
-                  onChange={(e) => setJoinId(e.target.value)}
-                  placeholder="Paste Sheet ID or URL"
-                  onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                />
-                <button
-                  className="btn-secondary"
-                  onClick={handleJoin}
-                  disabled={loading}
-                >
-                  {loading && phase === 'joining' ? 'Connecting…' : 'Connect'}
+          {/* Step 2 */}
+          <div className="connect-step">
+            <div className="step-num">2</div>
+            <div className="step-body">
+              <div className="step-title">Open Apps Script</div>
+              <div className="step-desc">
+                In your sheet, click <strong>Extensions → Apps Script</strong>. Delete any existing code, then paste the script below:
+              </div>
+              <div className="code-block-wrap">
+                <pre className="code-block">{APPS_SCRIPT_CODE}</pre>
+                <button className="copy-btn" onClick={handleCopy}>
+                  {copied ? '✓ Copied!' : 'Copy'}
                 </button>
               </div>
             </div>
-            <p className="auth-share-hint">
-              💡 To share with family: connect the same sheet. Share the sheet in Google Drive with their email.
-            </p>
           </div>
-        )}
 
-        {(phase === 'creating' || phase === 'joining') && !error && (
-          <div className="auth-spinner-row">
-            <div className="spinner" />
+          {/* Step 3 */}
+          <div className="connect-step">
+            <div className="step-num">3</div>
+            <div className="step-body">
+              <div className="step-title">Deploy as Web App</div>
+              <div className="step-desc">
+                Click <strong>Deploy → New deployment</strong>. Choose type <strong>Web app</strong>. Set:
+                <ul className="step-list">
+                  <li><strong>Execute as:</strong> Me</li>
+                  <li><strong>Who has access:</strong> Anyone</li>
+                </ul>
+                Click <strong>Deploy</strong> and authorize when prompted. Copy the <strong>Web app URL</strong>.
+              </div>
+            </div>
           </div>
-        )}
 
-        {error && <div className="auth-error">{error}</div>}
+          {/* Step 4 */}
+          <div className="connect-step">
+            <div className="step-num">4</div>
+            <div className="step-body">
+              <div className="step-title">Paste your Web App URL</div>
+              <input
+                className="auth-input"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://script.google.com/macros/s/…/exec"
+                onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+              />
+              <button
+                className="btn-primary connect-btn"
+                onClick={handleConnect}
+                disabled={testing}
+              >
+                {testing ? 'Connecting…' : 'Test & Connect'}
+              </button>
+              {error && <div className="auth-error">{error}</div>}
+            </div>
+          </div>
+        </div>
+
+        <p className="auth-privacy">
+          🔒 This app only calls your own script URL — your data never leaves your Google Sheet.
+        </p>
       </div>
     </div>
   );

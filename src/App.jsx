@@ -5,7 +5,7 @@ import SettingsPanel from './components/SettingsPanel';
 import GoogleAuth from './components/GoogleAuth';
 import PinLock from './components/PinLock';
 import {
-  initSheets, isSignedIn, signIn, signOut,
+  setScriptUrl,
   getSetup as fetchSetup,
   saveSetup as pushSetup,
   getTransactions as fetchTransactions,
@@ -13,7 +13,7 @@ import {
   removeTransaction,
 } from './lib/sheets';
 import {
-  getSheetId, saveSheetId,
+  getScriptUrl, saveScriptUrl,
   getPinHash,
   getCachedSetup, cacheSetup,
   getCachedTransactions, cacheTransactions,
@@ -23,110 +23,97 @@ import {
 // phase: 'boot' | 'auth' | 'pin' | 'app'
 export default function App() {
   const [phase, setPhase] = useState('boot');
-  const [sheetId, setSheetId] = useState(null);
+  const [scriptUrl, setScriptUrlState] = useState(null);
   const [setup, setSetup] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
-  // Boot: init Google Identity Services then decide phase
+  // Boot: check for saved script URL then decide phase
   useEffect(() => {
-    (async () => {
-      await initSheets().catch(() => {}); // non-fatal if no client ID
+    const url = getScriptUrl();
+    if (!url) { setPhase('auth'); return; }
 
-      const sid = getSheetId();
-      if (!sid) { setPhase('auth'); return; }
+    setScriptUrl(url);
+    setScriptUrlState(url);
+    setSetup(getCachedSetup());
+    setTransactions(getCachedTransactions());
 
-      setSheetId(sid);
-      // Show cached data immediately so the app feels instant
-      setSetup(getCachedSetup());
-      setTransactions(getCachedTransactions());
+    if (getPinHash()) {
+      setPhase('pin');
+      return;
+    }
 
-      if (getPinHash()) {
-        setPhase('pin');
-        return;
-      }
-
-      setPhase('app');
-      doSync(sid);
-    })();
+    setPhase('app');
+    doSync(url);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const doSync = useCallback(async (sid) => {
-    if (!sid) return;
+  const doSync = useCallback(async (url) => {
+    if (!url) return;
     setSyncing(true);
     setSyncError('');
     try {
-      if (!isSignedIn()) await signIn();
       const [remoteSetup, remoteTxns] = await Promise.all([
-        fetchSetup(sid),
-        fetchTransactions(sid),
+        fetchSetup(),
+        fetchTransactions(),
       ]);
       if (remoteSetup) {
         setSetup(remoteSetup);
         cacheSetup(remoteSetup);
       }
-      // Remote transactions sorted newest first
       const sorted = [...(remoteTxns || [])].sort(
         (a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
       );
       setTransactions(sorted);
       cacheTransactions(sorted);
     } catch (e) {
-      setSyncError(e.message === 'not_signed_in' ? 'Sign in to sync' : e.message);
+      setSyncError(e.message || 'Sync failed');
     } finally {
       setSyncing(false);
     }
   }, []);
 
-  // ── Auth callbacks ─────────────────────────────────────────────────────────
+  // ── Auth callbacks ──────────────────────────────────────────────────────────
 
-  const handleConnect = (sid, isNew) => {
-    saveSheetId(sid);
-    setSheetId(sid);
-    if (isNew) {
-      setSetup(null);
-      setTransactions([]);
-    }
+  const handleConnect = (url) => {
+    saveScriptUrl(url);
+    setScriptUrl(url);
+    setScriptUrlState(url);
+    setSetup(null);
+    setTransactions([]);
     setPhase('app');
-    if (!isNew) doSync(sid);
+    doSync(url);
   };
 
   const handlePinVerified = () => {
     setPhase('app');
-    doSync(sheetId);
+    doSync(scriptUrl);
   };
 
-  // ── Setup / onboarding ─────────────────────────────────────────────────────
+  // ── Setup / onboarding ──────────────────────────────────────────────────────
 
   const handleSetupComplete = async (newSetup) => {
     setSetup(newSetup);
     cacheSetup(newSetup);
-    if (sheetId) {
-      try {
-        if (!isSignedIn()) await signIn();
-        await pushSetup(sheetId, newSetup);
-      } catch {
-        setSyncError('Setup saved locally — will sync next time');
-      }
+    try {
+      await pushSetup(newSetup);
+    } catch {
+      setSyncError('Setup saved locally — will sync next time');
     }
   };
 
-  // ── Transaction CRUD ───────────────────────────────────────────────────────
+  // ── Transaction CRUD ────────────────────────────────────────────────────────
 
   const handleSave = async (tx) => {
     const txWithMeta = { ...tx, createdAt: new Date().toISOString() };
     const updated = [txWithMeta, ...transactions];
     setTransactions(updated);
     cacheTransactions(updated);
-    if (sheetId) {
-      try {
-        if (!isSignedIn()) await signIn();
-        await appendTransaction(sheetId, txWithMeta);
-      } catch (e) {
-        setSyncError('Saved locally — sheet sync failed');
-      }
+    try {
+      await appendTransaction(txWithMeta);
+    } catch {
+      setSyncError('Saved locally — sheet sync failed');
     }
   };
 
@@ -134,39 +121,32 @@ export default function App() {
     const updated = transactions.filter(t => t.id !== id);
     setTransactions(updated);
     cacheTransactions(updated);
-    if (sheetId) {
-      try {
-        if (!isSignedIn()) await signIn();
-        await removeTransaction(sheetId, id);
-      } catch {
-        setSyncError('Deleted locally — sheet sync failed');
-      }
+    try {
+      await removeTransaction(id);
+    } catch {
+      setSyncError('Deleted locally — sheet sync failed');
     }
   };
 
-  // ── Settings ───────────────────────────────────────────────────────────────
+  // ── Settings ────────────────────────────────────────────────────────────────
 
   const handleSettingsSave = async (updatedSetup) => {
     setSetup(updatedSetup);
     cacheSetup(updatedSetup);
     setShowSettings(false);
-    if (sheetId) {
-      try {
-        if (!isSignedIn()) await signIn();
-        await pushSetup(sheetId, updatedSetup);
-      } catch {
-        setSyncError('Settings saved locally — sheet sync failed');
-      }
+    try {
+      await pushSetup(updatedSetup);
+    } catch {
+      setSyncError('Settings saved locally — sheet sync failed');
     }
   };
 
   const handleDisconnect = () => {
-    signOut();
     clearAll();
     window.location.reload();
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   if (phase === 'boot') {
     return (
@@ -198,7 +178,7 @@ export default function App() {
         transactions={transactions}
         onSave={handleSave}
         onDelete={handleDelete}
-        onSync={() => doSync(sheetId)}
+        onSync={() => doSync(scriptUrl)}
         syncing={syncing}
         syncError={syncError}
         onOpenSettings={() => setShowSettings(true)}
@@ -206,7 +186,7 @@ export default function App() {
       {showSettings && (
         <SettingsPanel
           setup={setup}
-          sheetId={sheetId}
+          scriptUrl={scriptUrl}
           onSave={handleSettingsSave}
           onClose={() => setShowSettings(false)}
           onDisconnect={handleDisconnect}
