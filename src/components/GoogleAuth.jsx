@@ -109,7 +109,7 @@ function readTransactions(ss) {
     }
 
     // Amount
-    let rawAmt = parseFloat(String(get(C.amount, noHeader ? 1 : -1)).replace(/[^0-9.\-]/g,'')) || 0;
+    let rawAmt = parseFloat(String(get(C.amount, noHeader ? 1 : -1)).replace(/[^0-9.-]/g,'')) || 0;
     const negative = rawAmt < 0;
     rawAmt = Math.abs(rawAmt);
 
